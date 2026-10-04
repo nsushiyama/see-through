@@ -1,0 +1,25 @@
+# TODO（依存順。上から順に1つずつ。完了したら [x] と commit hash を記入）
+
+- [x] TASK-000 永続状態ファイル AGENT/* 作成、fork/branch 準備
+- [x] TASK-001 既存 See-through パイプライン解析 → AGENT/ANALYSIS.md
+- [ ] TASK-002 テスト基盤: 合成全身キャラの semantic RGBA レイヤー（v3 tag 名, フルキャンバス, depth png, info.json, 隠れ部分あり）生成器 tests/live2d/synth.py + pytest 雛形
+- [ ] TASK-003 demo/app.py: HF Space app.py を attribution 付きでコピー（無改造）+ demo/README.md + demo/requirements.txt
+- [ ] TASK-004 live2d_split コア: srcd からフルキャンバス RGBA レイヤー読み込み（load_part 互換の閾値）、元画像キャンバスへの逆変換（pad 再計算）、Part データ構造、段階ログ
+- [ ] TASK-005 既存 LR 分割をフルキャンバスで再現（part_lr_split と同規則: 画面左=キャラ右、handwear/eyewhite/irides/eyelash/eyebrow/ears）+ 小成分は近い側へ（欠損防止）、命名 *_L/*_R
+- [ ] TASK-006 目・眉・まつ毛・耳・靴(footwear)・legwear の CC 左右分割と命名（eye_white_L 等）
+- [ ] TASK-007 フォールバック枠組み: 各 splitter を try/検証（面積保存・空パーツ無し）し失敗時は元レイヤー保持
+- [ ] TASK-008 PSD 出力: live2d_psd.py（フルキャンバス, offset 0, グループ Hair/Face/Body/Clothes/Accessory, 失敗時 prefix）+ round-trip テスト（サイズ・位置・alpha）
+- [ ] TASK-009 CLI inference/scripts/live2d_detailed_split.py + inference_psd.py へ --live2d_detailed_split（OFF 不変テスト）
+- [ ] TASK-010 腕分割: handwear(-L/-R)/素肌腕 を骨格・主軸で肩/肘/手首推定 → upper_arm/forearm/hand、解像度比例オーバーラップ(長辺 1〜3%, 既定2%)
+- [ ] TASK-011 袖分割: topwear → torso / upper_sleeve / lower_sleeve / cuff（腕軸と幅プロファイル）、collar
+- [ ] TASK-012 脚分割: legwear(+footwear) → thigh/lower_leg/foot、膝・足首オーバーラップ
+- [ ] TASK-013 髪房分割: front hair → center/L_01/L_02/R_01/R_02/side_L/side_R、back hair → center/L_01..03/R_01..03（顔中心基準の角度セクター + 透明度谷/輪郭凹部によるカット、CC 非依存）
+- [ ] TASK-014 顔/首: face, ear_L/R, neck（既存 neck レイヤー）
+- [ ] TASK-015 スカート: bottomwear → skirt/bottomwear_L/center/R（前後不明時）
+- [ ] TASK-016 装飾: headwear/neckwear/objects の独立成分 → main / tail_L / tail_R / center_decoration
+- [ ] TASK-017 可視画素復元: 再合成で可視判定した visible_mask に元画像 RGB を戻す + 数 px feather（ON/OFF 可能）
+- [ ] TASK-018 split preview（色分け mask, レイヤー数, 名前一覧）
+- [ ] TASK-019 demo/app.py に「Live2D detailed split」「Show split preview」追加（OFF 経路は無改造）
+- [ ] TASK-020 実画像テスト: HF Space か GPU 環境で全身アニメ画像の実 See-through 出力を取得し検証（GPU 不在なら代替取得手段を検討）
+- [ ] TASK-021 統合テスト・最終チェック（既存モード / detailed / PSD / レイヤー数 / 座標 / 透明度 / 左右 / フォールバック）→ 最終報告
+- [ ] (optional) TASK-022 SemanticSam / pose mask provider フック（GPU 環境で）
