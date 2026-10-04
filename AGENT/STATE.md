@@ -5,24 +5,24 @@ STATUS: IN_PROGRESS
 CURRENT_PHASE: analysis / scaffolding
 
 LAST_COMPLETED_TASK:
-TASK-001 既存 See-through パイプライン解析（AGENT/ANALYSIS.md）
+TASK-002 テスト基盤（tests/live2d/synth.py, run.sh）
 
 CURRENT_TASK:
-TASK-002 テスト基盤（合成キャラ semantic RGBA 生成器）
+TASK-020a HF Space 経由で実画像の See-through 出力を取得
 
 NEXT_TASK:
 TASK-003 demo/app.py 取り込み
 
 BLOCKERS:
-- box に GPU 無し（nvidia-smi 不在）、RAM 16GB（空き約3GB）、ルート FS 満杯 → 実 See-through 推論（SDXL LayerDiff3D + Marigold）は box で実行不可。
-  後処理は合成データ + 純粋ユニットテストで検証。実画像テストは TASK-020 で別手段（HF Space 経由等）を検討。
-- torch 未インストール（入れる余地なし）→ inference_utils.py を import できない。新モジュールは torch 非依存で書く。
+- box に GPU 無し・RAM 空き約3GB・ルート FS 100% 満杯 → box では See-through 推論しない。**実画像テストは公式 HF Space `24yearsold/see-through-demo` を gradio_client で呼び出して実行する（ユーザー指示, BLOCKED ではない）**。取得した semantic RGBA レイヤー/通常 PSD を detailed split に入力して検証。
+- 全ての作業ファイル・venv・一時ファイルは /mnt/stx（tmpfs）に置く。TMPDIR=/mnt/stx/tmp を必ず設定（/tmp も満杯）。
+- torch 未インストール → inference_utils.py は import 不可。新モジュールは torch 非依存。
 
 LAST_GOOD_COMMIT:
 a25a549 (upstream main; 未改変)
 
 TEST_STATUS:
-まだテスト無し
+tests/live2d: 2 passed (synth layout, existing load_parts compat)
 
 ## ENVIRONMENT（次の Agent 向け復元手順）
 - 作業ツリー: `/mnt/stx/see-through`（tmpfs。消えていたら下記で再作成）

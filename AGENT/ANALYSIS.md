@@ -89,3 +89,8 @@ Space の `common/utils/inference_utils.py` と `common/utils/io_utils.py` は G
 | 変更 | `inference/scripts/inference_psd.py` | `--live2d_detailed_split`, `--split_preview` 追加（OFF 時コード経路不変） |
 | 追加 | `demo/app.py`, `demo/README.md`, `demo/requirements.txt` | HF Space app.py（MIT, attribution）をコピーし「Live2D detailed split」「Show split preview」追加。OFF 時は既存処理のみ |
 | 追加 | `tests/live2d/` | 合成キャラ RGBA レイヤー生成器 + pytest（キャンバス一致・offset・alpha・再合成・L/R・overlap・fallback・OFF 不変） |
+
+## 追加発見（TASK-002）
+- `io_utils.load_part` は `np.sum(mask[:-p_test, :-p_test]) > 4`（p_test=長辺/10）で判定するため、
+  **画像下端/右端 10% の帯にしか画素が無いレイヤー（全身画像の靴など）は通常モードで捨てられる**。
+  既存挙動として変更しない。detailed split 側は独自ローダ（alpha>10 が1画素でもあれば採用）で欠損させない。
