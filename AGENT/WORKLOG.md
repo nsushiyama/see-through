@@ -21,3 +21,9 @@
 - tests/live2d/fetch_hf_space.py, psd_to_srcdir.py。test_image1 で Space 推論成功（110.9s）→ 所見は STATE.md。
 - box 更新騒ぎ: 一時的に /mnt/stx が見えなくなったが実際は残っていた（7bbd7ef と WIP を回収して push）。ルート FS は再び 100%。
 - common/utils/live2d_split.py の WIP（未テスト）は次の TASK-004 commit でテストと一緒に入れる。
+
+## TASK-004
+- common/utils/live2d_split.py: Part, load_semantic_layers（crop しない・下端レイヤーも保持）, overlap_px（長辺1-3%クランプ）,
+  pad_info/to_original_canvas/from_original_canvas（premultiplied resize）, composite, validate_split/safe_split（失敗時は元レイヤー保持）。
+  同ファイルに LR 分割・limb 解析ヘルパ（未テスト, TASK-005/010 でテスト）。
+- tests/live2d/test_core.py 6件追加 → 8 passed。

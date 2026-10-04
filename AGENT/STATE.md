@@ -6,13 +6,13 @@ CURRENT_PHASE:
 core post-processing module
 
 LAST_COMPLETED_TASK:
-TASK-020a HF Space 実画像取得ツール（tests/live2d/fetch_hf_space.py, psd_to_srcdir.py）
+TASK-004 live2d_split コア（loader / canvas mapping / composite / validate+safe_split）
 
 CURRENT_TASK:
-TASK-004 live2d_split コア（ローダ・キャンバス逆変換・Part・段階ログ）のテスト
+TASK-005 LR 分割（split_lr_cc）テスト
 
 NEXT_TASK:
-TASK-005 LR 分割テスト → TASK-006 目/眉/耳/靴
+TASK-006 目/眉/耳/靴/脚の CC 左右 + 命名
 
 BLOCKERS:
 - none（実画像テストは HF Space 経由で実施可能。GPU 不在は BLOCKER ではない）
@@ -24,7 +24,7 @@ LAST_GOOD_COMMIT:
 3d44105 (tests 2 passed)。7bbd7ef = demo 取り込み（構文確認のみ）
 
 TEST_STATUS:
-tests/live2d: 2 passed (synth layout, existing load_parts compat)
+tests/live2d: 8 passed
 
 ## HF Space 実画像ルート
 - Space: `24yearsold/see-through-demo`（https://24yearsold-see-through-demo.hf.space, ZeroGPU, 匿名利用可, 1回約110秒 @768）
