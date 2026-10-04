@@ -15,9 +15,9 @@
 - [x] TASK-011 (collar 未実装) 袖分割: topwear → torso / upper_sleeve / lower_sleeve / cuff（腕軸と幅プロファイル）、collar
 - [x] TASK-012 脚分割: legwear(+footwear) → thigh/lower_leg/foot、膝・足首オーバーラップ
 - [x] TASK-013 髪房分割: front hair → center/L_01/L_02/R_01/R_02/side_L/side_R、back hair → center/L_01..03/R_01..03（顔中心基準の角度セクター + 透明度谷/輪郭凹部によるカット、CC 非依存）
-- [ ] TASK-014 顔/首: face, ear_L/R, neck（既存 neck レイヤー）
-- [ ] TASK-015 スカート: bottomwear → skirt/bottomwear_L/center/R（前後不明時）
-- [ ] TASK-016 装飾: headwear/neckwear/objects の独立成分 → main / tail_L / tail_R / center_decoration
+- [x] TASK-014 顔/首: face, ear_L/R, neck（既存 neck レイヤー）
+- [x] TASK-015 スカート: bottomwear → skirt/bottomwear_L/center/R（前後不明時）
+- [x] TASK-016 装飾: headwear/neckwear/objects の独立成分 → main / tail_L / tail_R / center_decoration
 - [ ] TASK-017 可視画素復元: 再合成で可視判定した visible_mask に元画像 RGB を戻す + 数 px feather（ON/OFF 可能）
 - [ ] TASK-018 split preview（色分け mask, レイヤー数, 名前一覧）
 - [ ] TASK-019 demo/app.py に「Live2D detailed split」「Show split preview」追加（OFF 経路は無改造）

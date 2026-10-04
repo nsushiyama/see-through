@@ -1068,3 +1068,158 @@ def stage_hair(parts: List[Part], report: SplitReport, ctx: 'SplitContext') -> L
 
 
 DETAILED_STAGES.append(('hair', stage_hair))
+
+
+# ----------------------------------------------------------------------------------------
+# stage: bottomwear (skirt -> skirt_R / skirt_center / skirt_L, pants/shorts -> bottomwear_R / _L)
+# ----------------------------------------------------------------------------------------
+
+def leg_gap_x(mask: np.ndarray) -> Optional[float]:
+    """x of the gap between the legs of shorts / pants (internal hole in the lowest rows), else None."""
+    ys, xs = np.nonzero(mask)
+    y0, y1 = ys.min(), ys.max()
+    width = max(np.ptp(xs), 1)
+    gaps = []
+    for y in range(int(y1 - 0.1 * (y1 - y0)), y1 + 1):
+        cols = np.nonzero(mask[y])[0]
+        if len(cols) < 2:
+            continue
+        d = np.diff(cols)
+        k = np.nonzero(d > 1)[0]
+        runs = np.split(cols, k + 1)
+        big = [r for r in runs if len(r) > 0.12 * width]
+        if len(big) >= 2:
+            gaps.append((big[0][-1] + big[1][0]) / 2)
+    if len(gaps) >= 2:
+        return float(np.median(gaps))
+    return None
+
+
+def split_bottomwear(part: Part, ctx: 'SplitContext') -> List[Part]:
+    if ctx.body_cx is None:
+        return None
+    region = part.alpha > 0
+    H, W = region.shape
+    yy, xx = np.mgrid[0:H, 0:W]
+    m = part.mask
+    gx = leg_gap_x(m)
+    if gx is not None:   # shorts / pants: split between the legs
+        r = split_lr_midline(part, gx, base='bottomwear')
+        for q in r:
+            q.method = 'bottom_pants_gap'
+        return r
+    ys, xs = np.nonzero(m)
+    px, py = ctx.body_cx, ys.min() - 0.3 * np.ptp(ys)      # pivot above the waist (skirt swings from the waist)
+    theta = np.arctan2(xx - px, yy - py)
+    th, rr = theta[m], np.hypot(xx - px, yy - py)[m]
+    targets = list(np.quantile(th, [0.3, 0.7]))
+    win = 0.3 * float(np.min(np.diff([th.min()] + targets + [th.max()])))
+    cuts = _angle_valley_cuts(th, rr, targets, th.min(), th.max(), win)
+    # front/back cannot be determined from a single front view -> left / centre / right
+    names = [('skirt_R', 'character_right'), ('skirt_center', None), ('skirt_L', 'character_left')]
+    secs = _sectors(region, theta, cuts, max(1, ctx.ov // 4))
+    return [part.derive(n, s, side=sd, method='skirt_sector') for (n, sd), s in zip(names, secs)]
+
+
+def stage_bottomwear(parts, report, ctx):
+    out = []
+    for p in parts:
+        if p.source == 'bottomwear' and p.side is None:
+            out.extend(safe_split(p, lambda q: split_bottomwear(q, ctx), report, 'bottomwear'))
+        else:
+            out.append(p)
+    return out
+
+
+DETAILED_STAGES.append(('bottomwear', stage_bottomwear))
+
+
+# ----------------------------------------------------------------------------------------
+# stage: accessories (headwear / neckwear / objects / earwear / tail / wings)
+# ----------------------------------------------------------------------------------------
+
+ACCESSORY_TAGS = ['headwear', 'neckwear', 'objects', 'tail', 'wings', 'eyewear']
+
+
+def split_ribbon(part: Part, ctx: 'SplitContext') -> Optional[List[Part]]:
+    """One connected bow / tie: knot+loops = main, hanging pieces below the knot = tail_R / tail_L."""
+    m = part.mask
+    ys, xs = np.nonzero(m)
+    dt = cv2.distanceTransform(m.astype(np.uint8), cv2.DIST_L2, 3)
+    xmed = float(np.median(xs))
+    upper = m & (np.arange(m.shape[0])[:, None] < ys.min() + 0.6 * np.ptp(ys)) \
+        & (np.abs(np.arange(m.shape[1])[None, :] - xmed) < 0.15 * max(np.ptp(xs), 1))
+    if not upper.any():
+        return None
+    k = np.argmax(np.where(upper, dt, -1))
+    ky, kx = divmod(int(k), m.shape[1])
+    rk = max(float(dt[ky, kx]), 2.0)
+    region = part.alpha > 0
+    H, W = m.shape
+    yy, xx = np.mgrid[0:H, 0:W]
+    below = region & (yy > ky + 1.5 * rk)
+    tails = []
+    for nm, sel, sd in (('tail_R', xx < kx, 'character_right'), ('tail_L', xx >= kx, 'character_left')):
+        t = below & sel
+        if (t & m).sum() >= 0.1 * m.sum():
+            tails.append((nm, t, sd))
+    if not tails:
+        return None
+    main = region.copy()
+    for _, t, _ in tails:
+        main &= ~t
+    b = part.name
+    ov = max(1, ctx.ov // 3)
+    kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * ov + 1,) * 2)
+    outs = [part.derive(f'{b}_main', main, method='ribbon_shape')]
+    for nm, t, sd in tails:
+        t = cv2.dilate(t.astype(np.uint8), kern).astype(bool) & region     # tails overlap the knot
+        outs.append(part.derive(f'{b}_{nm}', t, side=sd, method='ribbon_shape'))
+    return outs
+
+
+def split_accessory(part: Part, ctx: 'SplitContext') -> Optional[List[Part]]:
+    m = part.mask
+    min_a = max(16, int(0.02 * m.sum()))
+    comps = [c for c in components(m) if c[1][cv2.CC_STAT_AREA] >= min_a]
+    if len(comps) >= 2 and ctx.body_cx is not None:
+        region = part.alpha > 0
+        seeds = [c[0] for c in comps]
+        pieces = assign_to_nearest(region, seeds)
+        named = []
+        for (cm, st, cen), pc in zip(comps, pieces):
+            dx = cen[0] - ctx.body_cx
+            tol = 0.04 * m.shape[1]
+            if abs(dx) <= tol:
+                nm, sd = 'center', None
+            elif dx < 0:
+                nm, sd = 'R', 'character_right'
+            else:
+                nm, sd = 'L', 'character_left'
+            named.append((nm, sd, pc, cen))
+        named.sort(key=lambda t: (t[0], t[3][1]))
+        outs, cnt = [], {}
+        for nm, sd, pc, _ in named:
+            cnt[nm] = cnt.get(nm, 0) + 1
+            outs.append((nm, sd, pc, cnt[nm]))
+        res = []
+        for nm, sd, pc, i in outs:
+            suffix = nm if cnt[nm] == 1 else f'{nm}_{i:02d}'
+            res.append(part.derive(f'{part.name}_{suffix}', pc, side=sd, method='accessory_cc'))
+        return res
+    if part.source in ('neckwear', 'headwear'):
+        return split_ribbon(part, ctx)
+    return None
+
+
+def stage_accessories(parts, report, ctx):
+    out = []
+    for p in parts:
+        if p.source in ACCESSORY_TAGS and p.side is None:
+            out.extend(safe_split(p, lambda q: split_accessory(q, ctx), report, 'accessory'))
+        else:
+            out.append(p)
+    return out
+
+
+DETAILED_STAGES.append(('accessories', stage_accessories))
