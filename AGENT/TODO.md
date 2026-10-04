@@ -3,8 +3,8 @@
 - [x] TASK-000 永続状態ファイル AGENT/* 作成、fork/branch 準備
 - [x] TASK-001 既存 See-through パイプライン解析 → AGENT/ANALYSIS.md
 - [x] TASK-002 テスト基盤: 合成全身キャラの semantic RGBA レイヤー（v3 tag 名, フルキャンバス, depth png, info.json, 隠れ部分あり）生成器 tests/live2d/synth.py + pytest 雛形
-- [ ] TASK-020a 実画像取得: gradio_client で HF Space `24yearsold/see-through-demo` に全身アニメ画像を投入し、通常 PSD + gallery（semantic RGBA）を tests/live2d/real/ 外（/mnt/stx/work/real）に保存、取得手順をスクリプト化（tests/live2d/fetch_hf_space.py）
-- [ ] TASK-003 demo/app.py: HF Space app.py を attribution 付きでコピー（無改造）+ demo/README.md + demo/requirements.txt
+- [x] TASK-020a 実画像取得: gradio_client で HF Space `24yearsold/see-through-demo` に全身アニメ画像を投入し、通常 PSD + gallery（semantic RGBA）を tests/live2d/real/ 外（/mnt/stx/work/real）に保存、取得手順をスクリプト化（tests/live2d/fetch_hf_space.py）
+- [x] TASK-003 (7bbd7ef) demo/app.py: HF Space app.py を attribution 付きでコピー（無改造）+ demo/README.md + demo/requirements.txt
 - [ ] TASK-004 live2d_split コア: srcd からフルキャンバス RGBA レイヤー読み込み（load_part 互換の閾値）、元画像キャンバスへの逆変換（pad 再計算）、Part データ構造、段階ログ
 - [ ] TASK-005 既存 LR 分割をフルキャンバスで再現（part_lr_split と同規則: 画面左=キャラ右、handwear/eyewhite/irides/eyelash/eyebrow/ears）+ 小成分は近い側へ（欠損防止）、命名 *_L/*_R
 - [ ] TASK-006 目・眉・まつ毛・耳・靴(footwear)・legwear の CC 左右分割と命名（eye_white_L 等）

@@ -3,7 +3,7 @@
 # On the agent box the root FS is full: keep temp files on /mnt/stx.
 set -e
 cd "$(dirname "$0")/../.."
-if [ -d /mnt/stx ]; then export TMPDIR=/mnt/stx/tmp; mkdir -p "$TMPDIR"; fi
+for d in /workspace /mnt/stx; do if [ -w "$d" ] && [ -d "$d/venv" ]; then export TMPDIR=$d/tmp; mkdir -p "$TMPDIR"; PY=${PY:-$d/venv/bin/python}; break; fi; done
 PY=${PY:-/mnt/stx/venv/bin/python}
 [ -x "$PY" ] || PY=python
 exec "$PY" -m pytest tests/live2d -q -p no:cacheprovider "$@"

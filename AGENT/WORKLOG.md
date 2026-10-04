@@ -15,3 +15,9 @@
 - 発見: load_part は下端/右端 10% 帯だけのレイヤー（靴）を捨てる既存挙動 → ANALYSIS 追記。
 - 一時的に box の Shell が spawn 失敗（数分で回復）。原因は /tmp 満杯 or メモリ逼迫と推定。TMPDIR 必須。
 - ユーザー指示: 実画像テストは HF Space 経由で行う（GPU 不在を BLOCKED 扱いにしない）→ TASK-020a を前倒し。
+
+## 2026-10-05 TASK-003 / TASK-020a
+- demo/app.py: Space app.py を MIT attribution 付きで取り込み（_root と Examples ガードのみ変更, 原本 demo/app_space_original.py）。7bbd7ef。
+- tests/live2d/fetch_hf_space.py, psd_to_srcdir.py。test_image1 で Space 推論成功（110.9s）→ 所見は STATE.md。
+- box 更新騒ぎ: 一時的に /mnt/stx が見えなくなったが実際は残っていた（7bbd7ef と WIP を回収して push）。ルート FS は再び 100%。
+- common/utils/live2d_split.py の WIP（未テスト）は次の TASK-004 commit でテストと一緒に入れる。
