@@ -6,9 +6,9 @@
 - [x] TASK-020a 実画像取得: gradio_client で HF Space `24yearsold/see-through-demo` に全身アニメ画像を投入し、通常 PSD + gallery（semantic RGBA）を tests/live2d/real/ 外（/mnt/stx/work/real）に保存、取得手順をスクリプト化（tests/live2d/fetch_hf_space.py）
 - [x] TASK-003 (7bbd7ef) demo/app.py: HF Space app.py を attribution 付きでコピー（無改造）+ demo/README.md + demo/requirements.txt
 - [x] TASK-004 live2d_split コア: srcd からフルキャンバス RGBA レイヤー読み込み（load_part 互換の閾値）、元画像キャンバスへの逆変換（pad 再計算）、Part データ構造、段階ログ
-- [ ] TASK-005 既存 LR 分割をフルキャンバスで再現（part_lr_split と同規則: 画面左=キャラ右、handwear/eyewhite/irides/eyelash/eyebrow/ears）+ 小成分は近い側へ（欠損防止）、命名 *_L/*_R
-- [ ] TASK-006 目・眉・まつ毛・耳・靴(footwear)・legwear の CC 左右分割と命名（eye_white_L 等）
-- [ ] TASK-007 フォールバック枠組み: 各 splitter を try/検証（面積保存・空パーツ無し）し失敗時は元レイヤー保持
+- [x] TASK-005 既存 LR 分割をフルキャンバスで再現（part_lr_split と同規則: 画面左=キャラ右、handwear/eyewhite/irides/eyelash/eyebrow/ears）+ 小成分は近い側へ（欠損防止）、命名 *_L/*_R
+- [x] TASK-006 目・眉・まつ毛・耳・靴(footwear)・legwear の CC 左右分割と命名（eye_white_L 等）
+- [x] TASK-007 (safe_split; TASK-004 で実装・テスト) フォールバック枠組み: 各 splitter を try/検証（面積保存・空パーツ無し）し失敗時は元レイヤー保持
 - [ ] TASK-008 PSD 出力: live2d_psd.py（フルキャンバス, offset 0, グループ Hair/Face/Body/Clothes/Accessory, 失敗時 prefix）+ round-trip テスト（サイズ・位置・alpha）
 - [ ] TASK-009 CLI inference/scripts/live2d_detailed_split.py + inference_psd.py へ --live2d_detailed_split（OFF 不変テスト）
 - [ ] TASK-010 腕分割: handwear(-L/-R)/素肌腕 を骨格・主軸で肩/肘/手首推定 → upper_arm/forearm/hand、解像度比例オーバーラップ(長辺 1〜3%, 既定2%)

@@ -497,3 +497,49 @@ def segment_with_overlap(part_region: np.ndarray, dist: np.ndarray, cuts: Sequen
             for o, extra in zip(out, assign_to_nearest(unreached, seeds)):
                 o |= extra
     return out
+
+
+# ----------------------------------------------------------------------------------------
+# stage 2a: additional left/right splits (connected components where appropriate)
+# ----------------------------------------------------------------------------------------
+
+EXTRA_CC_LR_TAGS = ['footwear', 'earwear']
+SUSPICIOUS_AREA_RATIO = 0.35  # a body-part layer covering >35% of the canvas is likely background leakage
+
+
+def body_center_x(parts: Sequence[Part]) -> Optional[float]:
+    for tag in ('neck', 'face', 'topwear'):
+        for p in parts:
+            if p.source == tag and p.side is None and p.area() > 0:
+                ys, xs = np.nonzero(p.mask)
+                return float(np.median(xs))
+    return None
+
+
+def is_suspicious(p: Part) -> bool:
+    return p.area() > SUSPICIOUS_AREA_RATIO * p.img.shape[0] * p.img.shape[1]
+
+
+def stage_lr_extra(parts: List[Part], report: SplitReport) -> List[Part]:
+    cx = body_center_x(parts)
+    out = []
+    for p in parts:
+        if p.side is not None:
+            out.append(p)
+        elif p.source in EXTRA_CC_LR_TAGS:
+            out.extend(safe_split(p, split_lr_cc, report, 'lr_cc'))
+        elif p.source == 'legwear':
+            if is_suspicious(p):
+                report.event(f'fallback lr legwear: layer covers {p.area() / p.mask.size:.0%} of canvas (background leakage?) -> kept')
+                out.append(p)
+                continue
+
+            def _legs(q):
+                r = split_lr_cc(q)
+                if len(r) == 2:
+                    return r
+                return split_lr_midline(q, cx) if cx is not None else None
+            out.extend(safe_split(p, _legs, report, 'lr_legs'))
+        else:
+            out.append(p)
+    return out

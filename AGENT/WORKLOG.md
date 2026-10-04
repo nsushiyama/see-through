@@ -27,3 +27,8 @@
   pad_info/to_original_canvas/from_original_canvas（premultiplied resize）, composite, validate_split/safe_split（失敗時は元レイヤー保持）。
   同ファイルに LR 分割・limb 解析ヘルパ（未テスト, TASK-005/010 でテスト）。
 - tests/live2d/test_core.py 6件追加 → 8 passed。
+
+## TASK-005/006/007
+- split_lr_cc（既存 part_lr_split と同規則: 上位2成分, 画面左=キャラ右 _R。小成分/薄い縁は近い側へ割当て欠損なし）。
+- stage_lr_extra: footwear/earwear CC、legwear は CC→無理なら体中心線（neck/face 中央値 x）で分割、canvas の35%超は背景混入とみなし保持。
+- test_lr.py 4件。実データ img1: original 17 → after LR 23 → extra 24、全左右正しい（_R が画面左）。

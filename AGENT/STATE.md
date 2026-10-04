@@ -6,13 +6,13 @@ CURRENT_PHASE:
 core post-processing module
 
 LAST_COMPLETED_TASK:
-TASK-004 live2d_split コア（loader / canvas mapping / composite / validate+safe_split）
+TASK-005/006 LR 分割（既存規則 split_lr_cc + 靴/earwear CC + 脚 CC→midline, 背景混入 legwear は保持）
 
 CURRENT_TASK:
-TASK-005 LR 分割（split_lr_cc）テスト
+TASK-008 PSD 出力（live2d_psd.py, グループ, round-trip）
 
 NEXT_TASK:
-TASK-006 目/眉/耳/靴/脚の CC 左右 + 命名
+TASK-009 CLI + inference_psd.py フラグ
 
 BLOCKERS:
 - none（実画像テストは HF Space 経由で実施可能。GPU 不在は BLOCKER ではない）
@@ -24,7 +24,7 @@ LAST_GOOD_COMMIT:
 3d44105 (tests 2 passed)。7bbd7ef = demo 取り込み（構文確認のみ）
 
 TEST_STATUS:
-tests/live2d: 8 passed
+tests/live2d: 12 passed。実データ img1: 17 → LR 23 → extra 24（左右正しい）
 
 ## HF Space 実画像ルート
 - Space: `24yearsold/see-through-demo`（https://24yearsold-see-through-demo.hf.space, ZeroGPU, 匿名利用可, 1回約110秒 @768）
