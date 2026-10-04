@@ -18,7 +18,7 @@
 - [x] TASK-014 顔/首: face, ear_L/R, neck（既存 neck レイヤー）
 - [x] TASK-015 スカート: bottomwear → skirt/bottomwear_L/center/R（前後不明時）
 - [x] TASK-016 装飾: headwear/neckwear/objects の独立成分 → main / tail_L / tail_R / center_decoration
-- [ ] TASK-017 可視画素復元: 再合成で可視判定した visible_mask に元画像 RGB を戻す + 数 px feather（ON/OFF 可能）
+- [x] TASK-017 可視画素復元: 再合成で可視判定した visible_mask に元画像 RGB を戻す + 数 px feather（ON/OFF 可能）
 - [ ] TASK-018 split preview（色分け mask, レイヤー数, 名前一覧）
 - [ ] TASK-019 demo/app.py に「Live2D detailed split」「Show split preview」追加（OFF 経路は無改造）
 - [ ] TASK-020 実画像テスト: HF Space か GPU 環境で全身アニメ画像の実 See-through 出力を取得し検証（GPU 不在なら代替取得手段を検討）

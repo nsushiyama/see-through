@@ -6,13 +6,13 @@ CURRENT_PHASE:
 core post-processing module
 
 LAST_COMPLETED_TASK:
-TASK-014/015/016 顔/首（既存レイヤー命名確認）, bottomwear（脚の隙間→bottomwear_R/L, それ以外 skirt_R/center/L 角度セクター）, 装飾（複数成分→_R/_L/_center, 一体リボン→main+tail_R/L 形状解析）
+TASK-017 可視画素復元（ソース単位の前方透過率で可視判定, 内部は元画像 RGB, 境界 feather=長辺0.4%, alpha 不変, 隠れ画素は不変）
 
 CURRENT_TASK:
-TASK-017 可視画素復元（元画像 RGB を可視部へ, feather）
+TASK-018 split preview（色分け mask + レイヤー数 + 名前一覧）
 
 NEXT_TASK:
-TASK-018 preview → TASK-019 demo UI
+TASK-019 demo/app.py UI チェックボックス
 
 BLOCKERS:
 - none（実画像テストは HF Space 経由で実施可能。GPU 不在は BLOCKER ではない）
@@ -24,7 +24,7 @@ LAST_GOOD_COMMIT:
 3d44105 (tests 2 passed)。7bbd7ef = demo 取り込み（構文確認のみ）
 
 TEST_STATUS:
-tests/live2d: 35 passed。実データ: img0 45 層(ショートパンツ→bottomwear_R/L), img1 42 層(スカート→skirt_R/center/L)
+tests/live2d: 37 passed。実データ img0: 再合成の元画像との平均絶対誤差 12.24 → 4.21（restore 後）、目視で外観一致
 
 ## HF Space 実画像ルート
 - Space: `24yearsold/see-through-demo`（https://24yearsold-see-through-demo.hf.space, ZeroGPU, 匿名利用可, 1回約110秒 @768）

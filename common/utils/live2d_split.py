@@ -603,8 +603,8 @@ def run_detailed_split(srcd: str, original: Optional[str] = None, out_psd: Optio
     canvas_hw = parts[0].img.shape[:2] if parts else fullpage.shape[:2]
     # stable sort far -> near (ties keep split order)
     parts = [p for _, _, p in sorted(((-p.depth, i, p) for i, p in enumerate(parts)), key=lambda t: (t[0], t[1]))]
-    if restore_visible and orig_img is not None and 'restore_visible_pixels' in globals():
-        parts = restore_visible_pixels(parts, orig_img, report)  # noqa: F821 (defined in TASK-017)
+    if restore_visible and orig_img is not None:
+        parts = restore_visible_pixels(parts, orig_img, report)
 
     names = dedupe_names(parts)
     if out_psd is None:
@@ -1223,3 +1223,65 @@ def stage_accessories(parts, report, ctx):
 
 
 DETAILED_STAGES.append(('accessories', stage_accessories))
+
+
+# ----------------------------------------------------------------------------------------
+# visible-pixel restore: result[visible] = original[visible] (with feather); hidden pixels untouched
+# ----------------------------------------------------------------------------------------
+
+def restore_visible_pixels(parts: List[Part], original: np.ndarray, report: Optional[SplitReport] = None,
+                           feather_px: Optional[int] = None) -> List[Part]:
+    """Copy the ORIGINAL image's RGB into the parts where they are visible in the final composite.
+
+    ``parts`` must be on the original canvas and ordered far -> near.  Visibility is computed per
+    semantic source (parts split from the same layer never occlude each other, so joint overlaps
+    stay consistent).  Inside a part, weight = 1 deep inside the visible region and ramps to 0 over
+    ``feather_px`` pixels toward occlusion boundaries / the part's own soft edge.  Alpha is never
+    changed; inpainted (hidden) pixels are kept exactly.
+    """
+    if not parts:
+        return parts
+    H, W = parts[0].img.shape[:2]
+    if original.shape[:2] != (H, W):
+        raise ValueError('original must be on the same canvas as the parts')
+    if feather_px is None:
+        feather_px = max(2, int(round(0.004 * max(H, W))))
+    orig_rgb = original[..., :3].astype(np.float32)
+    orig_a = original[..., 3] if original.shape[2] == 4 else np.full((H, W), 255, np.uint8)
+    # source blocks in drawing order
+    order = []
+    for p in parts:
+        if not order or order[-1] != p.source:
+            order.append(p.source)
+    block_alpha = {}
+    for s in set(order):
+        a = np.zeros((H, W), np.float32)
+        for p in parts:
+            if p.source == s:
+                a = np.maximum(a, p.img[..., 3].astype(np.float32) / 255.)
+        block_alpha[s] = a
+    # transmittance of everything in front of each block (blocks may repeat if interleaved: use last)
+    T = np.ones((H, W), np.float32)
+    trans_front = {}
+    for s in reversed(order):
+        if s not in trans_front:
+            trans_front[s] = T.copy()
+        T = T * (1 - block_alpha[s])
+    n_changed = 0
+    for p in parts:
+        if p.source in ('nose', 'mouth'):   # further_extr already takes these from the source image
+            continue
+        a = p.img[..., 3]
+        core = (a > 200) & (trans_front[p.source] > 0.95) & (orig_a > 200)
+        if not core.any():
+            continue
+        dist = cv2.distanceTransform(core.astype(np.uint8), cv2.DIST_L2, 3)
+        w = np.clip(dist / float(feather_px), 0, 1)[..., None]
+        sel = w[..., 0] > 0
+        rgb = p.img[..., :3].astype(np.float32)
+        rgb[sel] = w[sel] * orig_rgb[sel] + (1 - w[sel]) * rgb[sel]
+        p.img[..., :3] = np.round(rgb).astype(np.uint8)
+        n_changed += int(sel.sum())
+    if report is not None:
+        report.event(f'visible restore: {n_changed} px taken from the original (feather {feather_px}px)')
+    return parts
