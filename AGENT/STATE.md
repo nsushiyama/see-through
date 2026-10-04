@@ -6,13 +6,13 @@ CURRENT_PHASE:
 core post-processing module
 
 LAST_COMPLETED_TASK:
-TASK-010 腕分割（geodesic 軸, 肘/手首推定, 長辺2%オーバーラップ, handwear 内の袖布を彩度差で分離）
+TASK-011 topwear → torso / upper_sleeve / lower_sleeve / cuff（腕軸と胴体軸の正規化距離で所属決定, 袖は腕の上にある場合のみ, 肩に ov の重複, cuff は先端帯の色差）
 
 CURRENT_TASK:
-TASK-011 topwear → torso / upper_sleeve / lower_sleeve / cuff（腕軸利用）
+TASK-012 脚分割（leg_L/R → thigh/lower_leg, footwear → foot）
 
 NEXT_TASK:
-TASK-012 脚
+TASK-013 髪房
 
 BLOCKERS:
 - none（実画像テストは HF Space 経由で実施可能。GPU 不在は BLOCKER ではない）
@@ -24,7 +24,7 @@ LAST_GOOD_COMMIT:
 3d44105 (tests 2 passed)。7bbd7ef = demo 取り込み（構文確認のみ）
 
 TEST_STATUS:
-tests/live2d: 25 passed。実データ img1: 腕6パーツ, 左右正しい, 関節オーバーラップ有。パフ袖は肌と同色(ab差≈3)のため upper_arm に含めたまま（誤分割防止）
+tests/live2d: 26 passed。実データ img1: topwear → torso + upper_sleeve_R/L（ブラウス側部が上腕を覆う部分）。collar 未実装
 
 ## HF Space 実画像ルート
 - Space: `24yearsold/see-through-demo`（https://24yearsold-see-through-demo.hf.space, ZeroGPU, 匿名利用可, 1回約110秒 @768）

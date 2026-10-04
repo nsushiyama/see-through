@@ -559,6 +559,8 @@ class SplitContext:
     overlap_ratio: float = 0.02
     body_cx: Optional[float] = None
     fullpage: Optional[np.ndarray] = None
+    arms: Dict[str, dict] = field(default_factory=dict)   # side -> {'axis': LimbAxis, 'joints': {...}}
+    legs: Dict[str, dict] = field(default_factory=dict)
 
     @property
     def ov(self) -> int:
@@ -716,7 +718,7 @@ def split_arm(part: Part, anchor, ctx: 'SplitContext') -> List[Part]:
     outs.append(part.derive(f'hand_{sfx}', hand, side=part.side, method='arm_geodesic'))
     for o in outs:
         o.depth_map = None
-    part._joints = j  # debug
+    ctx.arms[part.side] = {'axis': axis, 'joints': j, 'mask': m}
     return outs
 
 
@@ -732,3 +734,131 @@ def stage_arms(parts: List[Part], report: SplitReport, ctx: 'SplitContext') -> L
 
 
 DETAILED_STAGES.append(('arms', stage_arms))
+
+
+# ----------------------------------------------------------------------------------------
+# stage: topwear -> torso / upper_sleeve / lower_sleeve / cuff (uses the arm axes)
+# ----------------------------------------------------------------------------------------
+
+def _nearest_on_polyline(ys, xs, pts):
+    """For pixels (ys, xs): index of nearest polyline vertex and distance (vectorised, chunked)."""
+    idx = np.empty(len(xs), np.int64)
+    dist = np.empty(len(xs), np.float32)
+    for s0 in range(0, len(xs), 20000):
+        dx = xs[s0:s0 + 20000, None] - pts[None, :, 0]
+        dy = ys[s0:s0 + 20000, None] - pts[None, :, 1]
+        d2 = dx * dx + dy * dy
+        k = np.argmin(d2, 1)
+        idx[s0:s0 + 20000] = k
+        dist[s0:s0 + 20000] = np.sqrt(d2[np.arange(len(k)), k])
+    return idx, dist
+
+
+def _median_ab(img, m):
+    return np.median(cv2.cvtColor(img[..., :3], cv2.COLOR_RGB2LAB)[..., 1:][m].astype(np.float32), 0)
+
+
+def split_topwear(part: Part, ctx: 'SplitContext', anchor) -> List[Part]:
+    if not ctx.arms or ctx.body_cx is None or anchor is None:
+        return None
+    region = part.alpha > 0
+    ys, xs = np.nonzero(region)
+    ov = ctx.ov
+    # torso skeleton: vertical segment at body centre from the neck base to the bottom of the layer
+    y_top, y_bot = anchor[1], ys.max()
+    rows = np.unique(ys)
+    mid_rows = rows[(rows > y_top + 0.2 * (y_bot - y_top)) & (rows < y_top + 0.8 * (y_bot - y_top))]
+    xc = int(round(ctx.body_cx))
+    half = []
+    for r in mid_rows[::4]:
+        row = region[r]
+        if row[xc]:
+            l = xc
+            while l > 0 and row[l - 1]:
+                l -= 1
+            rr = xc
+            while rr < len(row) - 1 and row[rr + 1]:
+                rr += 1
+            half.append((rr - l) / 2)
+    if not half:
+        return None
+    torso_r = float(np.median(half))
+    torso_pts = np.stack([np.full(64, ctx.body_cx), np.linspace(y_top, y_bot, 64)], 1)
+    _, d_torso = _nearest_on_polyline(ys, xs, torso_pts)
+    scores = [d_torso / max(torso_r, 1.0)]
+    sides = []
+    for side, a in ctx.arms.items():
+        ax, j = a['axis'], a['joints']
+        bins = np.arange(len(ax.centers))
+        dbin = (bins + 0.5) * ax.bin_size
+        keep = dbin >= 0.15 * j['elbow']
+        pts = ax.centers[keep]
+        if len(pts) < 3:
+            continue
+        w = ax.widths[keep & (dbin <= j['elbow'])] / ax.bin_size
+        arm_r = float(np.median(w)) / 2 if len(w) else 10.0
+        k, d_arm = _nearest_on_polyline(ys, xs, pts)
+        sc = d_arm / max(arm_r * 1.6, 1.0)   # sleeves are wider than the bare arm
+        # a sleeve must lie OVER the (inpainted) arm: pixels far outside the arm silhouette stay torso
+        near_arm = cv2.dilate(a['mask'].astype(np.uint8), cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (2 * int(0.6 * arm_r) + 1,) * 2)).astype(bool)
+        sc = np.where(near_arm[ys, xs], sc, np.inf)
+        scores.append(sc)
+        sides.append((side, dbin[keep][k]))
+    if not sides:
+        return None
+    owner = np.argmin(np.stack(scores, 0), 0)        # 0 = torso, i = sides[i-1]
+    lab = np.full(region.shape, -1, np.int32)
+    lab[ys, xs] = owner
+    outs = []
+    torso = lab == 0
+    outs.append(part.derive('torso', torso, method='topwear_skeleton'))
+    for i, (side, dpix) in enumerate(sides, start=1):
+        sleeve = lab == i
+        sm = sleeve & part.mask
+        arm_m = ctx.arms[side]['mask']
+        over_arm = (sm & arm_m).sum() / max(sm.sum(), 1)
+        along = dpix[owner == i]
+        reach = (np.percentile(along, 95) - np.percentile(along, 5)) / max(ctx.arms[side]['joints']['elbow'], 1) if len(along) else 0
+        if sm.sum() < max(50, 0.02 * part.area()) or over_arm < 0.6 or reach < 0.4:
+            torso |= sleeve   # not a real sleeve (e.g. off-shoulder / sleeveless top next to the arm)
+            continue
+        sfx = side_suffix(side)
+        j = ctx.arms[side]['joints']
+        dmap = np.full(region.shape, np.inf, np.float32)
+        dmap[ys, xs] = dpix
+        # sleeve keeps an overlap band into the torso at the shoulder seam
+        ext = cv2.dilate(sleeve.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * ov + 1,) * 2)).astype(bool)
+        sleeve_ext = ext & region & (sleeve | torso)
+        dmap[sleeve_ext & ~sleeve] = 0
+        upper, lower = segment_with_overlap(sleeve_ext, dmap, [j['elbow']], ov)
+        pieces = [('upper_sleeve', upper), ('lower_sleeve', lower)]
+        # cuff: distal band with clearly different colour from the sleeve body
+        dmax = float(dpix[owner == i].max())
+        band = sleeve & (dmap >= dmax - 0.15 * (dmax - j['elbow'])) & part.mask
+        body = sleeve & (dmap < dmax - 0.3 * (dmax - j['elbow'])) & part.mask
+        if band.sum() > 30 and body.sum() > 30 and np.linalg.norm(_median_ab(part.img, band) - _median_ab(part.img, body)) > 10:
+            cut = dmax - 0.15 * (dmax - j['elbow'])
+            lower2, cuff = segment_with_overlap(lower, dmap, [cut], max(2, ov // 2))
+            pieces = [('upper_sleeve', upper), ('lower_sleeve', lower2), ('cuff', cuff)]
+        if len(pieces) == 2 and (lower & ~upper & part.mask).sum() < 0.15 * sm.sum():
+            pieces = [('upper_sleeve', upper | lower)]   # sleeve ends above/near the elbow: one piece
+        for nm, m in pieces:
+            if (m & part.mask).sum() >= 16:
+                outs.append(part.derive(f'{nm}_{sfx}', m, side=side, method='topwear_skeleton'))
+    outs[0] = part.derive('torso', torso, method='topwear_skeleton')
+    return outs
+
+
+def stage_topwear(parts: List[Part], report: SplitReport, ctx: 'SplitContext') -> List[Part]:
+    anchor = shoulder_anchor(parts, ctx)
+    out = []
+    for p in parts:
+        if p.source == 'topwear' and p.side is None:
+            out.extend(safe_split(p, lambda q: split_topwear(q, ctx, anchor), report, 'topwear'))
+        else:
+            out.append(p)
+    return out
+
+
+DETAILED_STAGES.append(('topwear', stage_topwear))
