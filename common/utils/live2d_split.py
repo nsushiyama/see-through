@@ -612,9 +612,10 @@ def run_detailed_split(srcd: str, original: Optional[str] = None, out_psd: Optio
     save_live2d_psd(out_psd, parts, canvas_hw, use_groups=use_groups)
     report.stage('final PSD layers', len(parts))
     prev = None
-    if preview and 'make_preview' in globals():
-        prev = make_preview(parts, orig_img if orig_img is not None else to_canvas_like(fullpage, canvas_hw),  # noqa: F821
-                            osp.splitext(out_psd)[0] + '_preview.png')
+    if preview:
+        prev = osp.splitext(out_psd)[0] + '_preview.png'
+        make_preview(parts, orig_img if orig_img is not None else to_canvas_like(fullpage, canvas_hw), prev,
+                     counts=report.stages)
     return {'psd': out_psd, 'counts': report.stages, 'names': names, 'preview': prev, 'events': report.events,
             'canvas_hw': list(canvas_hw)}
 
@@ -1285,3 +1286,68 @@ def restore_visible_pixels(parts: List[Part], original: np.ndarray, report: Opti
     if report is not None:
         report.event(f'visible restore: {n_changed} px taken from the original (feather {feather_px}px)')
     return parts
+
+
+# ----------------------------------------------------------------------------------------
+# split preview
+# ----------------------------------------------------------------------------------------
+
+def _font(size):
+    from PIL import ImageFont
+    p = osp.join(osp.dirname(osp.dirname(osp.abspath(__file__))), 'assets', 'arial.ttf')
+    try:
+        return ImageFont.truetype(p, size)
+    except Exception:  # noqa: BLE001
+        return ImageFont.load_default()
+
+
+def part_color(i: int, n: int) -> Tuple[int, int, int]:
+    import colorsys
+    h = (i * 0.618033988749895) % 1.0      # golden-ratio hues: neighbours get distinct colours
+    r, g, b = colorsys.hsv_to_rgb(h, 0.75, 0.95)
+    return int(r * 255), int(g * 255), int(b * 255)
+
+
+def make_preview(parts: Sequence[Part], base: np.ndarray, savep: Optional[str] = None,
+                 counts: Optional[List[Tuple[str, int]]] = None) -> np.ndarray:
+    """[original | colour-coded part masks (labelled) | layer count + part list]."""
+    from PIL import ImageDraw
+    H, W = parts[0].img.shape[:2]
+    base_rgb = base[..., :3].astype(np.float32)
+    if base.shape[2] == 4:
+        a = base[..., 3:4].astype(np.float32) / 255.
+        base_rgb = base_rgb * a + 255 * (1 - a)
+    over = base_rgb * 0.25 + 255 * 0.75
+    for i, p in enumerate(parts):   # far -> near: the nearest part wins where they overlap
+        m = (p.img[..., 3:4] > ALPHA_T).astype(np.float32) * 0.7
+        over = over * (1 - m) + np.array(part_color(i, len(parts)), np.float32) * m
+    fs = max(10, int(H / 90))
+    panel_w = max(int(W * 0.6), 18 * fs)
+    canvas = Image.new('RGB', (2 * W + panel_w, H), 'white')
+    canvas.paste(Image.fromarray(np.clip(base_rgb, 0, 255).astype(np.uint8)), (0, 0))
+    canvas.paste(Image.fromarray(np.clip(over, 0, 255).astype(np.uint8)), (W, 0))
+    d = ImageDraw.Draw(canvas)
+    f = _font(fs)
+    for i, p in enumerate(parts):
+        ys, xs = np.nonzero(p.mask)
+        if len(xs):
+            d.text((W + float(np.median(xs)) - fs, float(np.median(ys)) - fs / 2), p.name, fill=(0, 0, 0), font=_font(max(8, fs * 2 // 3)))
+    y = fs
+    d.text((2 * W + fs, y), f'layers: {len(parts)}', fill=(0, 0, 0), font=_font(int(fs * 1.4)))
+    y += int(fs * 2)
+    for lab, n in (counts or []):
+        d.text((2 * W + fs, y), f'{lab}: {n}', fill=(60, 60, 60), font=f)
+        y += int(fs * 1.3)
+    y += fs // 2
+    col_h = H - y - fs
+    per_col = max(1, col_h // int(fs * 1.25))
+    cw = panel_w // max(1, int(np.ceil(len(parts) / per_col)))
+    for i, p in enumerate(parts):
+        cx = 2 * W + fs + (i // per_col) * cw
+        cy = y + (i % per_col) * int(fs * 1.25)
+        d.rectangle([cx, cy + 2, cx + fs - 2, cy + fs], fill=part_color(i, len(parts)))
+        d.text((cx + fs + 2, cy), f'{p.group[:4]}/{p.name}', fill=(0, 0, 0), font=_font(max(8, fs * 4 // 5)))
+    arr = np.array(canvas)
+    if savep:
+        canvas.save(savep)
+    return arr

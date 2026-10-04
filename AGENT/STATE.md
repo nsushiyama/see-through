@@ -6,13 +6,13 @@ CURRENT_PHASE:
 core post-processing module
 
 LAST_COMPLETED_TASK:
-TASK-017 可視画素復元（ソース単位の前方透過率で可視判定, 内部は元画像 RGB, 境界 feather=長辺0.4%, alpha 不変, 隠れ画素は不変）
+TASK-018 split preview（元画像 | 色分け mask+ラベル | レイヤー数・段階数・Group/名前一覧）
 
 CURRENT_TASK:
-TASK-018 split preview（色分け mask + レイヤー数 + 名前一覧）
+TASK-019 demo/app.py に Live2D detailed split / Show split preview チェックボックス
 
 NEXT_TASK:
-TASK-019 demo/app.py UI チェックボックス
+TASK-020 実画像テスト整理(結果を docs に) → TASK-021 最終チェック
 
 BLOCKERS:
 - none（実画像テストは HF Space 経由で実施可能。GPU 不在は BLOCKER ではない）
@@ -24,7 +24,7 @@ LAST_GOOD_COMMIT:
 3d44105 (tests 2 passed)。7bbd7ef = demo 取り込み（構文確認のみ）
 
 TEST_STATUS:
-tests/live2d: 37 passed。実データ img0: 再合成の元画像との平均絶対誤差 12.24 → 4.21（restore 後）、目視で外観一致
+tests/live2d: 38 passed
 
 ## HF Space 実画像ルート
 - Space: `24yearsold/see-through-demo`（https://24yearsold-see-through-demo.hf.space, ZeroGPU, 匿名利用可, 1回約110秒 @768）

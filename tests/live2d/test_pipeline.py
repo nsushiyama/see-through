@@ -57,3 +57,12 @@ def test_inference_psd_only_additions_behind_flag():
     code = [a for a in added if a.strip() and 'add_argument' not in a]
     assert code[0].strip() == 'if args.live2d_detailed_split:'
     assert all(c.startswith(' ' * 12) for c in code[1:])   # everything else is inside the if-block
+
+
+def test_preview(synth_dir, tmp_path):
+    from PIL import Image
+    out = str(tmp_path / 'p.psd')
+    r = L.run_detailed_split(synth_dir, original=osp.join(synth_dir, 'original.png'), out_psd=out, preview=True)
+    assert r['preview'] and osp.exists(r['preview'])
+    im = Image.open(r['preview'])
+    assert im.size[1] == 1024 and im.size[0] > 2 * 768

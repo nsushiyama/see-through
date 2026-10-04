@@ -83,3 +83,6 @@
 - restore_visible_pixels: 元キャンバスで、同一ソースのパーツは互いに遮蔽しない扱い（関節重複を一貫させる）、前方ソースの透過率>0.95 & alpha>200 を可視コアとし、
   距離変換で feather（既定 長辺0.4%）して元画像 RGB をブレンド。alpha は変更しない。nose/mouth は既存処理で元画像由来なので除外。
 - 実データ img0: 平均誤差 12.24→4.21。test_restore.py 2件（誤差半減以上、隠れ画素=袖下の上腕/スカート下の太腿 は完全不変）。
+
+## TASK-018
+- make_preview(parts, base, savep, counts)。run_detailed_split(preview=True) で <psd>_preview.png。実データ img0 で目視確認。38 passed。
