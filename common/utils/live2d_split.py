@@ -432,7 +432,8 @@ def _bend_index(axis: LimbAxis, lo: float, hi: float) -> Optional[int]:
     if nv < 1e-6:
         return None
     seg = axis.centers[i0:i1]
-    dev = np.abs(np.cross(v, seg - p0)) / nv
+    dd = seg - p0
+    dev = np.abs(v[0] * dd[:, 1] - v[1] * dd[:, 0]) / nv
     j = int(np.argmax(dev))
     return i0 + j if dev[j] > 0.04 * nv else None
 
@@ -629,3 +630,105 @@ def dedupe_names(parts: List[Part]) -> List[str]:
         else:
             seen[p.name] = 1
     return [p.name for p in parts]
+
+
+# ----------------------------------------------------------------------------------------
+# stage: arms (handwear L/R) -> upper_arm / forearm / hand (+ sleeve cloth inside handwear)
+# ----------------------------------------------------------------------------------------
+
+def shoulder_anchor(parts: Sequence[Part], ctx: 'SplitContext') -> Optional[Tuple[float, float]]:
+    """Neck base (bottom-centre of the neck layer, or chin of the face) used as proximal anchor."""
+    for tag in ('neck', 'face'):
+        for p in parts:
+            if p.source == tag and p.area() > 0:
+                ys, xs = np.nonzero(p.mask)
+                return float(np.median(xs)), float(ys.max())
+    return None
+
+
+def _lab(img_rgb_pixels: np.ndarray) -> np.ndarray:
+    return cv2.cvtColor(img_rgb_pixels.reshape(-1, 1, 3).astype(np.uint8), cv2.COLOR_RGB2LAB).reshape(-1, 3).astype(np.float32)
+
+
+def cloth_skin_masks(part: Part, region: np.ndarray, hand_core: np.ndarray, min_chroma=10.0, min_frac=0.06):
+    """Separate cloth (sleeve) from skin inside an arm layer by CHROMA (Lab a,b) difference to the hand.
+
+    Lightness is ignored on purpose so that shading / shadows on a bare arm are not mistaken for cloth.
+    A pixel is cloth if its (a,b) distance to the median hand colour exceeds
+    max(min_chroma, 3 * the hand's own chroma spread).  Small blobs are removed.  Returns None if no
+    coherent cloth region exists (then the arm is not split into skin / sleeve)."""
+    if hand_core.sum() < 20 or region.sum() < 200:
+        return None
+    ab = cv2.cvtColor(part.img[..., :3], cv2.COLOR_RGB2LAB)[..., 1:].astype(np.float32)
+    hand_ab = ab[hand_core]
+    ref = np.median(hand_ab, 0)
+    spread = np.percentile(np.linalg.norm(hand_ab - ref, axis=1), 90)
+    thr = max(min_chroma, 3.0 * spread)
+    dist = np.linalg.norm(ab - ref, axis=-1)
+    cloth = (dist > thr) & region & part.mask
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    cloth = cv2.morphologyEx(cloth.astype(np.uint8), cv2.MORPH_OPEN, k)
+    cloth = cv2.morphologyEx(cloth, cv2.MORPH_CLOSE, k).astype(bool) & region
+    comps = components(cloth, min_area=max(30, int(0.03 * region.sum())))
+    cloth = np.zeros_like(cloth)
+    for c, _, _ in comps:
+        cloth |= c
+    if cloth.sum() < min_frac * region.sum():
+        return None
+    # include the faint (alpha<=10) rim around cloth so nothing is orphaned
+    rim = cv2.dilate(cloth.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & region & ~part.mask
+    return cloth | rim
+
+
+def split_arm(part: Part, anchor, ctx: 'SplitContext') -> List[Part]:
+    sfx = side_suffix(part.side)
+    m = part.mask
+    axis = limb_axis(m, anchor)
+    if axis is None:
+        return None
+    if axis.length < 0.08 * long_side(m.shape):  # only a hand / glove
+        return [part.derive(f'hand_{sfx}', part.alpha > 0, side=part.side, method='arm_hand_only')]
+    j = arm_joints(axis)
+    ov = ctx.ov
+    region = part.alpha > 0
+    upper, fore, hand = segment_with_overlap(region, axis.dist, [j['elbow'], j['wrist']], ov)
+    hand_core = m & np.isfinite(axis.dist) & (axis.dist > j['wrist'] + ov)
+    cloth = cloth_skin_masks(part, region & ~hand_core, hand_core)
+    outs = []
+    pieces = [('upper_arm', 'upper_sleeve', upper), ('forearm', 'lower_sleeve', fore)]
+    min_px = max(16, int(0.01 * m.sum()))
+    for skin_name, cloth_name, seg in pieces:
+        if cloth is None:
+            outs.append(part.derive(f'{skin_name}_{sfx}', seg, side=part.side, method='arm_geodesic'))
+            continue
+        c = seg & cloth
+        s = seg & ~cloth
+        if (c & m).sum() < min_px:
+            s, c = seg, None
+        elif (s & m).sum() < min_px:
+            s, c = None, seg
+        if s is not None:
+            outs.append(part.derive(f'{skin_name}_{sfx}', s, side=part.side, method='arm_geodesic'))
+        if c is not None:
+            sl = part.derive(f'{cloth_name}_{sfx}', c, side=part.side, method='arm_sleeve_colour', group='Clothes')
+            sl.depth = part.depth - 1e-3
+            outs.append(sl)
+    outs.append(part.derive(f'hand_{sfx}', hand, side=part.side, method='arm_geodesic'))
+    for o in outs:
+        o.depth_map = None
+    part._joints = j  # debug
+    return outs
+
+
+def stage_arms(parts: List[Part], report: SplitReport, ctx: 'SplitContext') -> List[Part]:
+    anchor = shoulder_anchor(parts, ctx)
+    out = []
+    for p in parts:
+        if p.source == 'handwear' and p.side is not None and anchor is not None:
+            out.extend(safe_split(p, lambda q: split_arm(q, anchor, ctx), report, 'arm', min_cover=0.995))
+        else:
+            out.append(p)
+    return out
+
+
+DETAILED_STAGES.append(('arms', stage_arms))

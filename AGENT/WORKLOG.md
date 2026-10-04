@@ -43,3 +43,10 @@
   load → LR → stage_lr_extra → DETAILED_STAGES（後続タスクで登録, 各 stage 例外は握り潰して不変）→ 元画像キャンバスへ → depth 安定ソート → (restore/preview は後続) → PSD。
   段階ログ "[live2d] original semantic layers: N / after LR split / after detailed split / final PSD layers"。
 - CLI と inference_psd.py フラグ（OFF 時は upstream と同一コード経路）。test_pipeline.py 7件、21 passed。
+
+## TASK-010
+- split_arm: neck 基部を近位 anchor に geodesic 距離 → arm_joints（手首=0.68-0.86L 最小幅, 肘=肩-手首中点を屈曲で補正）→
+  segment_with_overlap で upper_arm/forearm/hand（各関節 ±ov=長辺2%）。長さ<長辺8% なら hand のみ。
+- 袖布: 手の (a,b) 中央値からの彩度距離 > max(10, 3*手の広がり) を布とする（明度は無視→影の誤検出防止）。
+  1回目（Lab 2-means, ΔE>22）は実データ左腕の影を袖と誤判定 → 方式変更（同じ方法2回失敗ルール前に切替）。
+- 実データ img1: パフ袖は肌とほぼ同色で分離されず upper_arm に含まれる（既知制限）。test_arms.py 4件。

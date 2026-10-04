@@ -11,7 +11,7 @@
 - [x] TASK-007 (safe_split; TASK-004 で実装・テスト) フォールバック枠組み: 各 splitter を try/検証（面積保存・空パーツ無し）し失敗時は元レイヤー保持
 - [x] TASK-008 PSD 出力: live2d_psd.py（フルキャンバス, offset 0, グループ Hair/Face/Body/Clothes/Accessory, 失敗時 prefix）+ round-trip テスト（サイズ・位置・alpha）
 - [x] TASK-009 CLI inference/scripts/live2d_detailed_split.py + inference_psd.py へ --live2d_detailed_split（OFF 不変テスト）
-- [ ] TASK-010 腕分割: handwear(-L/-R)/素肌腕 を骨格・主軸で肩/肘/手首推定 → upper_arm/forearm/hand、解像度比例オーバーラップ(長辺 1〜3%, 既定2%)
+- [x] TASK-010 腕分割: handwear(-L/-R)/素肌腕 を骨格・主軸で肩/肘/手首推定 → upper_arm/forearm/hand、解像度比例オーバーラップ(長辺 1〜3%, 既定2%)
 - [ ] TASK-011 袖分割: topwear → torso / upper_sleeve / lower_sleeve / cuff（腕軸と幅プロファイル）、collar
 - [ ] TASK-012 脚分割: legwear(+footwear) → thigh/lower_leg/foot、膝・足首オーバーラップ
 - [ ] TASK-013 髪房分割: front hair → center/L_01/L_02/R_01/R_02/side_L/side_R、back hair → center/L_01..03/R_01..03（顔中心基準の角度セクター + 透明度谷/輪郭凹部によるカット、CC 非依存）
