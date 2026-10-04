@@ -32,3 +32,8 @@
 - split_lr_cc（既存 part_lr_split と同規則: 上位2成分, 画面左=キャラ右 _R。小成分/薄い縁は近い側へ割当て欠損なし）。
 - stage_lr_extra: footwear/earwear CC、legwear は CC→無理なら体中心線（neck/face 中央値 x）で分割、canvas の35%超は背景混入とみなし保持。
 - test_lr.py 4件。実データ img1: original 17 → after LR 23 → extra 24、全左右正しい（_R が画面左）。
+
+## TASK-008
+- live2d_psd.save_live2d_psd: PSDImage.new(size=(W,H)) で正しい向き、全レイヤー full canvas/offset 0、
+  グループは z-order 上の連続区間ごと（同名再出現は Hair_2 等）→ 描画順を崩さない。失敗時 "<Group>_name" フラット。
+- read_psd_layers（テスト用）。test_psd.py 2件、14 passed。
