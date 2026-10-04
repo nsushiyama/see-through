@@ -86,3 +86,7 @@
 
 ## TASK-018
 - make_preview(parts, base, savep, counts)。run_detailed_split(preview=True) で <psd>_preview.png。実データ img0 で目視確認。38 passed。
+
+## 2026-10-05 TASK-019 demo checkboxes
+- demo/app.py: added "Live2D detailed split" + "Show split preview" checkboxes and outputs (detailed PSD, preview, info). OFF path calls further_extr exactly as before and returns the same psd/gallery; detailed split runs only when checked, wrapped in try/except so failures never break the normal output.
+- tests/live2d/test_demo_app.py runs the real `inference()` with GPU models stubbed (gradio 6.29 in test venv). 41 passed.

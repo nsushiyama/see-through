@@ -96,8 +96,29 @@ def _collect_layer_gallery(saved_dir):
     return gallery
 
 
+def _run_live2d_split(saved, input_path, show_preview):  # [fork]
+    """Live2D/Spine detailed split on the inpainted semantic layers in `saved` (CPU post-process)."""
+    from utils.live2d_split import run_detailed_split
+    t0 = time.time()
+    _log("Running Live2D detailed split...")
+    out_psd = os.path.join(tempfile.gettempdir(), "seethrough_live2d.psd")
+    try:
+        r = run_detailed_split(saved, original=input_path, out_psd=out_psd, preview=show_preview)
+    except Exception as e:  # never break the normal output
+        _log(f"Live2D detailed split failed: {type(e).__name__}: {e}")
+        return None, None, f"Live2D detailed split failed: {e}"
+    _log(f"Live2D detailed split done ({time.time() - t0:.1f}s)")
+    lines = [f"- {k}: **{n}**" for k, n in r["counts"]]
+    lines.append(f"- canvas (H x W): {r['canvas_hw'][0]} x {r['canvas_hw'][1]}")
+    lines.append("")
+    lines.append("Parts: " + ", ".join(f"`{n}`" for n in r["names"]))
+    preview = Image.open(r["preview"]) if r.get("preview") else None
+    return out_psd, preview, "\n".join(lines)
+
+
 @spaces.GPU(duration=120)
-def inference(image: Image.Image, resolution: int = 768, seed: int = 42, tblr_split: bool = False):
+def inference(image: Image.Image, resolution: int = 768, seed: int = 42, tblr_split: bool = False,
+              live2d_split: bool = False, show_preview: bool = False):  # [fork] live2d_split / show_preview
     t_start = time.time()
     if image is None:
         raise gr.Error("Please upload an image.")
@@ -141,6 +162,11 @@ def inference(image: Image.Image, resolution: int = 768, seed: int = 42, tblr_sp
         further_extr(saved, rotate=False, save_to_psd=True, tblr_split=tblr_split)
         _log(f"PSD assembly done ({time.time() - t0:.1f}s)")
 
+        # [fork] Live2D detailed split: pure post-processing of the SAME semantic layers (OFF -> skipped)
+        live2d_path, preview_img, live2d_info = None, None, ""
+        if live2d_split:
+            live2d_path, preview_img, live2d_info = _run_live2d_split(saved, input_path, show_preview)
+
         psd_path = saved + ".psd"
         if os.path.exists(psd_path):
             output_path = os.path.join(
@@ -148,7 +174,7 @@ def inference(image: Image.Image, resolution: int = 768, seed: int = 42, tblr_sp
             )
             shutil.copy2(psd_path, output_path)
             _log(f"Total inference time: {time.time() - t_start:.1f}s")
-            return output_path, gallery
+            return output_path, gallery, live2d_path, preview_img, live2d_info  # [fork] + live2d outputs
 
         raise gr.Error("PSD generation failed — no output file produced.")
     finally:
@@ -186,15 +212,27 @@ with gr.Blocks(title="See-through: Layer Decomposition") as demo:
                 label="Split left/right arms & legs",
                 info="Separate left and right limbs into individual layers. Useful if the default output glues them together.",
             )
+            live2d_split = gr.Checkbox(  # [fork]
+                value=False,
+                label="Live2D detailed split",
+                info="Also export a Live2D/Spine-oriented PSD (~50-80 parts: hair strands, upper/lower arms, "
+                     "legs, sleeves, skirt, eyes L/R ...) split from the same inpainted layers. "
+                     "OFF = original behaviour.",
+            )
+            show_preview = gr.Checkbox(value=False, label="Show split preview",  # [fork]
+                                       info="Colour-coded part masks, layer count and part names.")
             run_btn = gr.Button("Run", variant="primary")
         with gr.Column(scale=2):
             psd_output = gr.File(label="Download layered PSD")
             gallery_output = gr.Gallery(label="Separated layers", columns=4, height="auto")
+            live2d_output = gr.File(label="Download Live2D detailed-split PSD")  # [fork]
+            preview_output = gr.Image(label="Split preview", type="pil")  # [fork]
+            live2d_info = gr.Markdown()  # [fork]
 
     run_btn.click(
         fn=inference,
-        inputs=[input_image, resolution, seed, tblr_split],
-        outputs=[psd_output, gallery_output],
+        inputs=[input_image, resolution, seed, tblr_split, live2d_split, show_preview],  # [fork]
+        outputs=[psd_output, gallery_output, live2d_output, preview_output, live2d_info],  # [fork]
     )
     _example = os.path.join(_root, "common/assets/test_image.png")
     if os.path.exists(_example):  # [fork] example image only ships with the HF Space
