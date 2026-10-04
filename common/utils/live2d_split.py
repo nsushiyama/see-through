@@ -543,3 +543,89 @@ def stage_lr_extra(parts: List[Part], report: SplitReport) -> List[Part]:
         else:
             out.append(p)
     return out
+
+
+# ----------------------------------------------------------------------------------------
+# pipeline
+# ----------------------------------------------------------------------------------------
+
+DETAILED_STAGES: List[Tuple[str, Callable]] = []   # (label, fn(parts, report, ctx) -> parts); filled below
+
+
+@dataclass
+class SplitContext:
+    canvas_hw: Tuple[int, int]
+    overlap_ratio: float = 0.02
+    body_cx: Optional[float] = None
+    fullpage: Optional[np.ndarray] = None
+
+    @property
+    def ov(self) -> int:
+        return overlap_px(self.canvas_hw, self.overlap_ratio)
+
+
+def run_detailed_split(srcd: str, original: Optional[str] = None, out_psd: Optional[str] = None,
+                       overlap_ratio: float = 0.02, restore_visible: bool = True, preview: bool = False,
+                       use_groups: bool = True) -> dict:
+    """Live2D detailed split of a See-through output directory ``srcd`` (post-processing only).
+
+    original: path of the ORIGINAL input image. If given, parts are exported on its canvas
+              (same size / coordinates as the original); otherwise on the inference canvas.
+    Returns {'psd', 'counts', 'names', 'preview', 'events'}.
+    """
+    from .live2d_psd import save_live2d_psd
+    report = SplitReport()
+    fullpage, parts = load_semantic_layers(srcd)
+    report.stage('original semantic layers', len(parts))
+    parts = stage_lr_split(parts, report)
+    report.stage('after LR split', len(parts))
+    ctx = SplitContext(canvas_hw=fullpage.shape[:2], overlap_ratio=overlap_ratio,
+                       body_cx=body_center_x(parts), fullpage=fullpage)
+    parts = stage_lr_extra(parts, report)
+    for label, fn in DETAILED_STAGES:
+        try:
+            parts = fn(parts, report, ctx)
+        except Exception as e:  # noqa: BLE001 - a broken stage must never break the PSD
+            report.event(f'stage {label} failed ({type(e).__name__}: {e}); parts left unchanged')
+    parts = [p for p in parts if p.area() > 0]
+    report.stage('after detailed split', len(parts))
+
+    orig_img = None
+    if original is not None:
+        orig_img = np.array(Image.open(original).convert('RGBA'))
+        hw = orig_img.shape[:2]
+        parts = [Part(p.name, to_original_canvas(p.img, hw), p.depth, p.source, p.group, p.side, p.method)
+                 for p in parts]
+        parts = [p for p in parts if p.area() > 0]
+    canvas_hw = parts[0].img.shape[:2] if parts else fullpage.shape[:2]
+    # stable sort far -> near (ties keep split order)
+    parts = [p for _, _, p in sorted(((-p.depth, i, p) for i, p in enumerate(parts)), key=lambda t: (t[0], t[1]))]
+    if restore_visible and orig_img is not None and 'restore_visible_pixels' in globals():
+        parts = restore_visible_pixels(parts, orig_img, report)  # noqa: F821 (defined in TASK-017)
+
+    names = dedupe_names(parts)
+    if out_psd is None:
+        out_psd = srcd.rstrip('/\\') + '_live2d.psd'
+    save_live2d_psd(out_psd, parts, canvas_hw, use_groups=use_groups)
+    report.stage('final PSD layers', len(parts))
+    prev = None
+    if preview and 'make_preview' in globals():
+        prev = make_preview(parts, orig_img if orig_img is not None else to_canvas_like(fullpage, canvas_hw),  # noqa: F821
+                            osp.splitext(out_psd)[0] + '_preview.png')
+    return {'psd': out_psd, 'counts': report.stages, 'names': names, 'preview': prev, 'events': report.events,
+            'canvas_hw': list(canvas_hw)}
+
+
+def to_canvas_like(img, hw):
+    return img if img.shape[:2] == tuple(hw) else to_original_canvas(img, hw)
+
+
+def dedupe_names(parts: List[Part]) -> List[str]:
+    seen: Dict[str, int] = {}
+    for p in parts:
+        if p.name in seen:
+            seen[p.name] += 1
+            p.name = f'{p.name}_{seen[p.name]:02d}'
+        else:
+            seen[p.name] = 1
+    return [p.name for p in parts]

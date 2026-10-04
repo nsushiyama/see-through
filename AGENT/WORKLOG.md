@@ -37,3 +37,9 @@
 - live2d_psd.save_live2d_psd: PSDImage.new(size=(W,H)) で正しい向き、全レイヤー full canvas/offset 0、
   グループは z-order 上の連続区間ごと（同名再出現は Hair_2 等）→ 描画順を崩さない。失敗時 "<Group>_name" フラット。
 - read_psd_layers（テスト用）。test_psd.py 2件、14 passed。
+
+## TASK-009
+- run_detailed_split(srcd, original, out_psd, overlap_ratio, restore_visible, preview, use_groups):
+  load → LR → stage_lr_extra → DETAILED_STAGES（後続タスクで登録, 各 stage 例外は握り潰して不変）→ 元画像キャンバスへ → depth 安定ソート → (restore/preview は後続) → PSD。
+  段階ログ "[live2d] original semantic layers: N / after LR split / after detailed split / final PSD layers"。
+- CLI と inference_psd.py フラグ（OFF 時は upstream と同一コード経路）。test_pipeline.py 7件、21 passed。

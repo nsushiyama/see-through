@@ -6,13 +6,13 @@ CURRENT_PHASE:
 core post-processing module
 
 LAST_COMPLETED_TASK:
-TASK-008 PSD 出力（common/utils/live2d_psd.py: full canvas, offset 0, z-order 保持グループ, prefix fallback, .json メタ）
+TASK-009 run_detailed_split パイプライン + CLI inference/scripts/live2d_detailed_split.py + inference_psd.py --live2d_detailed_split/--split_preview
 
 CURRENT_TASK:
-TASK-009 パイプライン関数 run_detailed_split + CLI + inference_psd.py フラグ
+TASK-010 腕分割（handwear arm_L/R → upper_arm/forearm/hand + 袖布の分離, 関節オーバーラップ）
 
 NEXT_TASK:
-TASK-010 腕分割
+TASK-011 袖（topwear 側）, TASK-012 脚
 
 BLOCKERS:
 - none（実画像テストは HF Space 経由で実施可能。GPU 不在は BLOCKER ではない）
@@ -24,7 +24,7 @@ LAST_GOOD_COMMIT:
 3d44105 (tests 2 passed)。7bbd7ef = demo 取り込み（構文確認のみ）
 
 TEST_STATUS:
-tests/live2d: 14 passed（PSD round-trip: 非正方 768x1024, alpha/RGB 完全一致, z-order 一致）
+tests/live2d: 21 passed（OFF 不変: inference_utils/io_utils/cv/torchcv が upstream と byte 一致、inference_psd.py は flag 内の追加のみ）
 
 ## HF Space 実画像ルート
 - Space: `24yearsold/see-through-demo`（https://24yearsold-see-through-demo.hf.space, ZeroGPU, 匿名利用可, 1回約110秒 @768）

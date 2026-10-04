@@ -35,6 +35,8 @@ if __name__ == '__main__':
     parser.add_argument('--tblr_split', action='store_true', help='try split parts (handwear, eyes, etc) into left-right components')
     parser.add_argument('--disable_progressbar', action='store_true', help='hide progressbar')
     parser.add_argument('--group_offload', action='store_true')
+    parser.add_argument('--live2d_detailed_split', action='store_true', help='additionally write a Live2D/Spine detailed-split PSD (<name>_live2d.psd); normal outputs are unchanged')
+    parser.add_argument('--split_preview', action='store_true', help='with --live2d_detailed_split: also write a colour-coded split preview PNG')
     args = parser.parse_args()
     srcp = args.srcp
 
@@ -58,3 +60,7 @@ if __name__ == '__main__':
         srcname = osp.basename(osp.splitext(srcp)[0])
         saved = osp.join(args.save_dir, srcname)
         further_extr(saved, rotate=False, save_to_psd=args.save_to_psd, tblr_split=args.tblr_split)
+
+        if args.live2d_detailed_split:
+            from utils.live2d_split import run_detailed_split
+            run_detailed_split(saved, original=srcp, preview=args.split_preview)
