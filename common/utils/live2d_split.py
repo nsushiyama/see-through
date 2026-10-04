@@ -783,6 +783,21 @@ def split_topwear(part: Part, ctx: 'SplitContext', anchor) -> List[Part]:
     if not half:
         return None
     torso_r = float(np.median(half))
+    # waist half-width (lower rows): sleeves must protrude beyond the torso silhouette
+    low_rows = rows[rows > y_top + 0.6 * (y_bot - y_top)]
+    waist = []
+    for r in low_rows[::3]:
+        row = region[r]
+        if row[xc]:   # contiguous run through the body centre (excludes separate hanging sleeves)
+            l = xc
+            while l > 0 and row[l - 1]:
+                l -= 1
+            rr = xc
+            while rr < len(row) - 1 and row[rr + 1]:
+                rr += 1
+            waist.append(max(xc - l, rr - xc))
+    waist_r = float(np.median(waist)) if waist else torso_r
+    outside_torso = np.abs(xs - ctx.body_cx) > 1.05 * waist_r
     torso_pts = np.stack([np.full(64, ctx.body_cx), np.linspace(y_top, y_bot, 64)], 1)
     _, d_torso = _nearest_on_polyline(ys, xs, torso_pts)
     scores = [d_torso / max(torso_r, 1.0)]
@@ -801,8 +816,8 @@ def split_topwear(part: Part, ctx: 'SplitContext', anchor) -> List[Part]:
         sc = d_arm / max(arm_r * 1.6, 1.0)   # sleeves are wider than the bare arm
         # a sleeve must lie OVER the (inpainted) arm: pixels far outside the arm silhouette stay torso
         near_arm = cv2.dilate(a['mask'].astype(np.uint8), cv2.getStructuringElement(
-            cv2.MORPH_ELLIPSE, (2 * int(0.6 * arm_r) + 1,) * 2)).astype(bool)
-        sc = np.where(near_arm[ys, xs], sc, np.inf)
+            cv2.MORPH_ELLIPSE, (2 * max(2, int(0.15 * arm_r)) + 1,) * 2)).astype(bool)
+        sc = np.where(near_arm[ys, xs] & outside_torso, sc, np.inf)
         scores.append(sc)
         sides.append((side, dbin[keep][k]))
     if not sides:
@@ -846,6 +861,8 @@ def split_topwear(part: Part, ctx: 'SplitContext', anchor) -> List[Part]:
         for nm, m in pieces:
             if (m & part.mask).sum() >= 16:
                 outs.append(part.derive(f'{nm}_{sfx}', m, side=side, method='topwear_skeleton'))
+    if len(outs) == 1:
+        return None   # no real sleeve found -> keep topwear as is
     outs[0] = part.derive('torso', torso, method='topwear_skeleton')
     return outs
 
