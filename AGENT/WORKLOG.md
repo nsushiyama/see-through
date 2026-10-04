@@ -56,3 +56,6 @@
   腕シルエット(0.6*腕半幅 dilate)外は torso 固定。袖成立条件: 腕との重なり≥60%, 腕方向の広がり≥肘距離の40%。
   肩側に ov 幅の重複を付与、肘で upper/lower（lower が小さければ1枚）、先端15%帯の色差>10 で cuff。
 - 実データ: 初回はブラウス側部を袖として lower_sleeve まで細切れ → 小 lower 統合で torso+upper_sleeve_R/L に。test_topwear.py 1件。
+
+## TASK-012
+- split_leg: 脚上端を anchor に geodesic、leg_joints（膝=股-足首中点を屈曲補正、footwear 無しなら足首=0.8-0.94L 最小幅で foot も）。test_legs.py 2件。

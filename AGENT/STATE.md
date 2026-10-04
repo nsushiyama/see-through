@@ -6,13 +6,13 @@ CURRENT_PHASE:
 core post-processing module
 
 LAST_COMPLETED_TASK:
-TASK-011 topwear → torso / upper_sleeve / lower_sleeve / cuff（腕軸と胴体軸の正規化距離で所属決定, 袖は腕の上にある場合のみ, 肩に ov の重複, cuff は先端帯の色差）
+TASK-012 脚分割（leg_L/R → thigh/lower_leg(/foot), 膝・足首 ov 重複）
 
 CURRENT_TASK:
-TASK-012 脚分割（leg_L/R → thigh/lower_leg, footwear → foot）
+TASK-013 髪房分割
 
 NEXT_TASK:
-TASK-013 髪房
+TASK-014 顔/首, TASK-015 スカート
 
 BLOCKERS:
 - none（実画像テストは HF Space 経由で実施可能。GPU 不在は BLOCKER ではない）
@@ -24,7 +24,7 @@ LAST_GOOD_COMMIT:
 3d44105 (tests 2 passed)。7bbd7ef = demo 取り込み（構文確認のみ）
 
 TEST_STATUS:
-tests/live2d: 26 passed。実データ img1: topwear → torso + upper_sleeve_R/L（ブラウス側部が上腕を覆う部分）。collar 未実装
+tests/live2d: 28 passed。実データ img1 の legwear は背景混入で fallback（元保持）
 
 ## HF Space 実画像ルート
 - Space: `24yearsold/see-through-demo`（https://24yearsold-see-through-demo.hf.space, ZeroGPU, 匿名利用可, 1回約110秒 @768）

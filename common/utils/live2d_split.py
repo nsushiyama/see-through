@@ -862,3 +862,41 @@ def stage_topwear(parts: List[Part], report: SplitReport, ctx: 'SplitContext') -
 
 
 DETAILED_STAGES.append(('topwear', stage_topwear))
+
+
+# ----------------------------------------------------------------------------------------
+# stage: legs (legwear L/R) -> thigh / lower_leg (/ foot when there is no footwear layer)
+# ----------------------------------------------------------------------------------------
+
+def split_leg(part: Part, ctx: 'SplitContext', has_footwear: bool) -> List[Part]:
+    sfx = side_suffix(part.side)
+    m = part.mask
+    ys, xs = np.nonzero(m)
+    y0 = ys.min()
+    top = ys <= y0 + max(2, 0.03 * (ys.max() - y0))
+    anchor = (float(np.median(xs[top])), float(y0) - 1)
+    axis = limb_axis(m, anchor)
+    if axis is None or axis.length < 0.12 * long_side(m.shape):
+        return None
+    j = leg_joints(axis, has_foot=not has_footwear)
+    ov = ctx.ov
+    region = part.alpha > 0
+    cuts = [j['knee']] + ([j['ankle']] if not has_footwear else [])
+    segs = segment_with_overlap(region, axis.dist, cuts, ov)
+    names = ['thigh', 'lower_leg', 'foot'][:len(segs)]
+    ctx.legs[part.side] = {'axis': axis, 'joints': j, 'mask': m}
+    return [part.derive(f'{n}_{sfx}', s, side=part.side, method='leg_geodesic') for n, s in zip(names, segs)]
+
+
+def stage_legs(parts: List[Part], report: SplitReport, ctx: 'SplitContext') -> List[Part]:
+    has_fw = any(p.source == 'footwear' for p in parts)
+    out = []
+    for p in parts:
+        if p.source == 'legwear' and p.side is not None:
+            out.extend(safe_split(p, lambda q: split_leg(q, ctx, has_fw), report, 'leg'))
+        else:
+            out.append(p)
+    return out
+
+
+DETAILED_STAGES.append(('legs', stage_legs))
