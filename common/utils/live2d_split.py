@@ -900,3 +900,154 @@ def stage_legs(parts: List[Part], report: SplitReport, ctx: 'SplitContext') -> L
 
 
 DETAILED_STAGES.append(('legs', stage_legs))
+
+
+# ----------------------------------------------------------------------------------------
+# stage: hair strands (shape analysis; NOT connected-components only)
+# ----------------------------------------------------------------------------------------
+
+@dataclass
+class FaceInfo:
+    cx: float
+    cy: float
+    top: float
+    bottom: float
+    half_w: float
+    eye_y: float
+
+
+def face_info(parts: Sequence[Part]) -> Optional[FaceInfo]:
+    face = next((p for p in parts if p.source == 'face' and p.area() > 0), None)
+    if face is None:
+        return None
+    ys, xs = np.nonzero(face.mask)
+    eyes = [p for p in parts if p.source in ('eyewhite', 'irides', 'eyes') and p.area() > 0]
+    eye_y = float(np.mean([np.nonzero(p.mask)[0].mean() for p in eyes])) if eyes else float(ys.min() + 0.45 * np.ptp(ys))
+    return FaceInfo(float(np.median(xs)), float(ys.mean()), float(ys.min()), float(ys.max()),
+                    float(np.percentile(xs, 99.5) - np.percentile(xs, 0.5)) / 2, eye_y)
+
+
+def _angle_valley_cuts(theta, radius, targets, lo, hi, window, nbins=180):
+    """Snap each target cut angle to the angle in [t-window, t+window] where the hair is SHORTEST
+    (max radius from the pivot is minimal) - i.e. the gap between two strands."""
+    if len(theta) == 0:
+        return list(targets)
+    edges = np.linspace(lo, hi, nbins + 1)
+    b = np.clip(np.digitize(theta, edges) - 1, 0, nbins - 1)
+    rmax = np.zeros(nbins, np.float32)
+    np.maximum.at(rmax, b, radius.astype(np.float32))
+    rmax = np.convolve(rmax, np.ones(3) / 3, mode='same')
+    centers = (edges[:-1] + edges[1:]) / 2
+    out = []
+    for t in targets:
+        sel = (centers >= t - window) & (centers <= t + window) & (rmax > 0)
+        if not sel.any():
+            out.append(t)
+            continue
+        cand = np.nonzero(sel)[0]
+        k = cand[np.argmin(rmax[cand] + 1e-3 * np.abs(centers[cand] - t))]
+        out.append(float(centers[k]))
+    return sorted(out)
+
+
+def _sectors(region, theta_map, cuts, soft_px):
+    """Bool masks for angle sectors split at ``cuts``; each sector is grown by ``soft_px`` into its
+    neighbours (small overlap so strands do not open gaps when moved)."""
+    edges = [-np.inf] + list(cuts) + [np.inf]
+    out = []
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * soft_px + 1,) * 2) if soft_px > 0 else None
+    for a, b in zip(edges[:-1], edges[1:]):
+        m = region & (theta_map >= a) & (theta_map < b)
+        if k is not None and m.any():
+            m = cv2.dilate(m.astype(np.uint8), k).astype(bool) & region
+        out.append(m)
+    return out
+
+
+def split_front_hair(part: Part, fi: FaceInfo, ctx: 'SplitContext') -> List[Part]:
+    region = part.alpha > 0
+    H, W = region.shape
+    ys, xs = np.nonzero(part.mask)
+    yy, xx = np.mgrid[0:H, 0:W]
+    outs = []
+    # side locks: hair outside the face width hanging below the eye line
+    side_band = (np.abs(xx - fi.cx) > 0.92 * fi.half_w) & (yy > fi.eye_y - 0.1 * (fi.bottom - fi.top))
+    side = region & side_band
+    rest = region.copy()
+    for nm, sel in (('side_hair_R', xx < fi.cx), ('side_hair_L', xx >= fi.cx)):
+        m = side & sel
+        # keep only side hair pieces that are connected to strands hanging down (not stray pixels)
+        if (m & part.mask).sum() >= 0.03 * part.area():
+            rest &= ~m
+            k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * max(1, ctx.ov // 2) + 1,) * 2)
+            m = cv2.dilate(m.astype(np.uint8), k).astype(bool) & region   # overlap into the bangs (no gap)
+            outs.append(part.derive(nm, m, side='character_right' if nm.endswith('R') else 'character_left',
+                                    method='hair_side'))
+    # bangs: radial sectors around a pivot above the forehead, cut in the gaps between strands
+    py = fi.top - 0.35 * (fi.bottom - fi.top)
+    px = fi.cx
+    theta_map = np.arctan2(xx - px, yy - py)        # 0 = straight down, <0 = screen left
+    r_map = np.hypot(xx - px, yy - py)
+    bm = rest & part.mask
+    th, rr = theta_map[bm], r_map[bm]
+    if len(th) < 50:
+        return outs + [part.derive('front_hair_center', rest, method='hair_sector')] if outs else None
+    width_ratio = (np.percentile(xx[bm], 97) - np.percentile(xx[bm], 3)) / max(2 * fi.half_w, 1)
+    if width_ratio > 0.6:
+        qs = [0.2, 0.38, 0.62, 0.8]
+        names = ['front_hair_R_02', 'front_hair_R_01', 'front_hair_center', 'front_hair_L_01', 'front_hair_L_02']
+    else:
+        qs = [0.33, 0.67]
+        names = ['front_hair_R_01', 'front_hair_center', 'front_hair_L_01']
+    targets = list(np.quantile(th, qs))
+    win = 0.4 * float(np.min(np.diff([th.min()] + targets + [th.max()])))
+    cuts = _angle_valley_cuts(th, rr, targets, th.min(), th.max(), win)
+    soft = max(1, ctx.ov // 4)
+    for nm, m in zip(names, _sectors(rest, theta_map, cuts, soft)):
+        sd = 'character_right' if '_R_' in nm else 'character_left' if '_L_' in nm else None
+        outs.append(part.derive(nm, m, side=sd, method='hair_sector'))
+    return outs
+
+
+def split_back_hair(part: Part, fi: FaceInfo, ctx: 'SplitContext') -> List[Part]:
+    region = part.alpha > 0
+    H, W = region.shape
+    yy, xx = np.mgrid[0:H, 0:W]
+    px, py = fi.cx, fi.cy
+    center = region & (np.abs(xx - px) < 0.35 * fi.half_w)
+    outs = [part.derive('back_hair_center', center, method='hair_sector')]
+    theta_map = np.abs(np.arctan2(xx - px, yy - py))   # 0 = down, pi = up (per side)
+    r_map = np.hypot(xx - px, yy - py)
+    soft = max(1, ctx.ov // 4)
+    for sfx, sel, sd in (('R', xx < px, 'character_right'), ('L', xx >= px, 'character_left')):
+        side = region & sel & ~center
+        sm = side & part.mask
+        if sm.sum() < 0.04 * part.area():
+            if side.any():
+                outs.append(part.derive(f'back_hair_{sfx}_01', side, side=sd, method='hair_sector'))
+            continue
+        th, rr = theta_map[sm], r_map[sm]
+        n = 3 if sm.sum() > 0.12 * part.area() else 2
+        targets = list(np.quantile(th, np.linspace(0, 1, n + 1)[1:-1]))
+        win = 0.35 * float(np.min(np.diff([th.min()] + targets + [th.max()])))
+        cuts = _angle_valley_cuts(th, rr, targets, th.min(), th.max(), win)
+        for i, m in enumerate(_sectors(side, theta_map, cuts, soft), start=1):   # 01 = lowest (hanging down)
+            outs.append(part.derive(f'back_hair_{sfx}_{i:02d}', m, side=sd,
+                                    method='hair_sector'))
+    return outs
+
+
+def stage_hair(parts: List[Part], report: SplitReport, ctx: 'SplitContext') -> List[Part]:
+    fi = face_info(parts)
+    out = []
+    for p in parts:
+        if fi is not None and p.source == 'front hair':
+            out.extend(safe_split(p, lambda q: split_front_hair(q, fi, ctx), report, 'front_hair'))
+        elif fi is not None and p.source == 'back hair':
+            out.extend(safe_split(p, lambda q: split_back_hair(q, fi, ctx), report, 'back_hair'))
+        else:
+            out.append(p)
+    return out
+
+
+DETAILED_STAGES.append(('hair', stage_hair))

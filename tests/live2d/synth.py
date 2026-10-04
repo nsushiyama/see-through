@@ -64,11 +64,13 @@ def build_masks(W=768, H=1024):
     cv2.fillPoly(back, [pts], 255)
     m['back hair'] = back
     front = z()
+    gt['front_hair_tips'] = []
     cv2.ellipse(front, (cx, S(200)[0]), tuple(S(100, 115)), 0, 180, 360, 255, -1)  # top cap
     for i, dx in enumerate([-70, -40, -10, 20, 50, 75]):
         x0 = cx + S(dx)[0]
         tri = np.array([[x0 - S(22)[0], S(150)[0]], [x0 + S(22)[0], S(150)[0]], [x0 + S(4)[0], S(185 + (i % 2) * 12)[0]]], np.int32)
         cv2.fillPoly(front, [tri], 255)
+        gt['front_hair_tips'].append([x0 + S(4)[0], S(185 + (i % 2) * 12)[0] - S(8)[0]])
     for sx in (-1, 1):  # side locks
         x0 = cx + sx * S(92)[0]
         poly = np.array([[x0 - S(16)[0], S(180)[0]], [x0 + S(16)[0], S(180)[0]], [x0 + sx * S(6)[0], S(360)[0]]], np.int32)

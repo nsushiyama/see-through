@@ -6,13 +6,13 @@ CURRENT_PHASE:
 core post-processing module
 
 LAST_COMPLETED_TASK:
-TASK-012 脚分割（leg_L/R → thigh/lower_leg(/foot), 膝・足首 ov 重複）
+TASK-013 髪房分割（front: side_hair_R/L + 中心/R_01/R_02/L_01/L_02 の放射セクター, 房の隙間（ピボットからの最大半径の谷）にカットをスナップ; back: center 帯 + 左右各 2-3 セクター; 少量重複）
 
 CURRENT_TASK:
-TASK-013 髪房分割
+TASK-014 顔/首 + TASK-015 スカート + TASK-016 装飾
 
 NEXT_TASK:
-TASK-014 顔/首, TASK-015 スカート
+TASK-017 可視画素復元, TASK-018 preview
 
 BLOCKERS:
 - none（実画像テストは HF Space 経由で実施可能。GPU 不在は BLOCKER ではない）
@@ -24,7 +24,7 @@ LAST_GOOD_COMMIT:
 3d44105 (tests 2 passed)。7bbd7ef = demo 取り込み（構文確認のみ）
 
 TEST_STATUS:
-tests/live2d: 28 passed。実データ img1 の legwear は背景混入で fallback（元保持）
+tests/live2d: 31 passed。実データ img1: front 7 + back 7 房, 左右正しい。全体 42 レイヤー
 
 ## HF Space 実画像ルート
 - Space: `24yearsold/see-through-demo`（https://24yearsold-see-through-demo.hf.space, ZeroGPU, 匿名利用可, 1回約110秒 @768）
