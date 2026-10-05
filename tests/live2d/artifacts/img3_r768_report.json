@@ -1,0 +1,83 @@
+{
+  "name": "img3_r768",
+  "counts": [
+    [
+      "original semantic layers",
+      15
+    ],
+    [
+      "after LR split",
+      19
+    ],
+    [
+      "after detailed split",
+      37
+    ],
+    [
+      "final PSD layers",
+      37
+    ]
+  ],
+  "names": [
+    "back_hair_center",
+    "back_hair_R_01",
+    "back_hair_R_02",
+    "back_hair_R_03",
+    "back_hair_L_01",
+    "back_hair_L_02",
+    "back_hair_L_03",
+    "foot_R",
+    "foot_L",
+    "thigh_R",
+    "lower_leg_R",
+    "thigh_L",
+    "lower_leg_L",
+    "neck",
+    "bottomwear_R",
+    "bottomwear_L",
+    "topwear",
+    "face",
+    "mouth",
+    "arm",
+    "eye_white_R",
+    "eye_white_L",
+    "iris_R",
+    "iris_L",
+    "eyebrow_R",
+    "eyebrow_L",
+    "eyelash_R",
+    "eyelash_L",
+    "headwear_L_01",
+    "headwear_L_02",
+    "side_hair_R",
+    "side_hair_L",
+    "front_hair_R_02",
+    "front_hair_R_01",
+    "front_hair_center",
+    "front_hair_L_01",
+    "front_hair_L_02"
+  ],
+  "events": [
+    "keep lr_split (arm): nothing to split",
+    "split lr_split (eye_white) -> ['eye_white_R', 'eye_white_L']",
+    "split lr_split (iris) -> ['iris_R', 'iris_L']",
+    "split lr_split (eyebrow) -> ['eyebrow_R', 'eyebrow_L']",
+    "split lr_split (eyelash) -> ['eyelash_R', 'eyelash_L']",
+    "split lr_cc (foot) -> ['foot_R', 'foot_L']",
+    "split lr_legs (leg) -> ['leg_R', 'leg_L']",
+    "keep topwear (topwear): nothing to split",
+    "split leg (leg_R) -> ['thigh_R', 'lower_leg_R']",
+    "split leg (leg_L) -> ['thigh_L', 'lower_leg_L']",
+    "split back_hair (back_hair) -> ['back_hair_center', 'back_hair_R_01', 'back_hair_R_02', 'back_hair_R_03', 'back_hair_L_01', 'back_hair_L_02', 'back_hair_L_03']",
+    "split front_hair (front_hair) -> ['side_hair_R', 'side_hair_L', 'front_hair_R_02', 'front_hair_R_01', 'front_hair_center', 'front_hair_L_01', 'front_hair_L_02']",
+    "split bottomwear (bottomwear) -> ['bottomwear_R', 'bottomwear_L']",
+    "split accessory (headwear) -> ['headwear_L_01', 'headwear_L_02']",
+    "visible restore: 313726 px taken from the original (feather 5px)"
+  ],
+  "psd_size": [
+    928,
+    1232
+  ],
+  "n": 37,
+  "bad_offset": 0
+}

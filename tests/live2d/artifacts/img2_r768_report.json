@@ -1,0 +1,94 @@
+{
+  "name": "img2_r768",
+  "counts": [
+    [
+      "original semantic layers",
+      17
+    ],
+    [
+      "after LR split",
+      23
+    ],
+    [
+      "after detailed split",
+      45
+    ],
+    [
+      "final PSD layers",
+      45
+    ]
+  ],
+  "names": [
+    "back_hair_center",
+    "back_hair_R_01",
+    "back_hair_R_02",
+    "back_hair_R_03",
+    "back_hair_L_01",
+    "back_hair_L_02",
+    "back_hair_L_03",
+    "thigh_R",
+    "lower_leg_R",
+    "thigh_L",
+    "lower_leg_L",
+    "neck",
+    "foot",
+    "torso",
+    "upper_sleeve_R",
+    "bottomwear_R",
+    "bottomwear_L",
+    "eyebrow_R",
+    "eyebrow_L",
+    "ear_R",
+    "ear_L",
+    "face",
+    "nose",
+    "mouth",
+    "eye_white_R",
+    "eye_white_L",
+    "upper_arm_R",
+    "forearm_R",
+    "hand_R",
+    "upper_arm_L",
+    "forearm_L",
+    "hand_L",
+    "upper_sleeve_L",
+    "lower_sleeve_L",
+    "eyelash_R",
+    "eyelash_L",
+    "iris_R",
+    "iris_L",
+    "front_hair_R_02",
+    "front_hair_R_01",
+    "front_hair_center",
+    "front_hair_L_01",
+    "front_hair_L_02",
+    "headwear_main",
+    "headwear_tail_L"
+  ],
+  "events": [
+    "split lr_split (eyebrow) -> ['eyebrow_R', 'eyebrow_L']",
+    "split lr_split (ear) -> ['ear_R', 'ear_L']",
+    "split lr_split (eye_white) -> ['eye_white_R', 'eye_white_L']",
+    "split lr_split (arm) -> ['arm_R', 'arm_L']",
+    "split lr_split (eyelash) -> ['eyelash_R', 'eyelash_L']",
+    "split lr_split (iris) -> ['iris_R', 'iris_L']",
+    "split lr_legs (leg) -> ['leg_R', 'leg_L']",
+    "keep lr_cc (foot): nothing to split",
+    "split arm (arm_R) -> ['upper_arm_R', 'forearm_R', 'hand_R']",
+    "split arm (arm_L) -> ['upper_arm_L', 'upper_sleeve_L', 'forearm_L', 'lower_sleeve_L', 'hand_L']",
+    "split topwear (topwear) -> ['torso', 'upper_sleeve_R']",
+    "split leg (leg_R) -> ['thigh_R', 'lower_leg_R']",
+    "split leg (leg_L) -> ['thigh_L', 'lower_leg_L']",
+    "split back_hair (back_hair) -> ['back_hair_center', 'back_hair_R_01', 'back_hair_R_02', 'back_hair_R_03', 'back_hair_L_01', 'back_hair_L_02', 'back_hair_L_03']",
+    "split front_hair (front_hair) -> ['front_hair_R_02', 'front_hair_R_01', 'front_hair_center', 'front_hair_L_01', 'front_hair_L_02']",
+    "split bottomwear (bottomwear) -> ['bottomwear_R', 'bottomwear_L']",
+    "split accessory (headwear) -> ['headwear_main', 'headwear_tail_L']",
+    "visible restore: 294156 px taken from the original (feather 5px)"
+  ],
+  "psd_size": [
+    928,
+    1232
+  ],
+  "n": 45,
+  "bad_offset": 0
+}

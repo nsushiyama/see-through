@@ -21,6 +21,6 @@
 - [x] TASK-017 可視画素復元: 再合成で可視判定した visible_mask に元画像 RGB を戻す + 数 px feather（ON/OFF 可能）
 - [x] TASK-018 split preview（色分け mask, レイヤー数, 名前一覧）
 - [x] TASK-019 demo/app.py に「Live2D detailed split」「Show split preview」追加（OFF 経路は無改造）
-- [ ] TASK-020 実画像テスト: HF Space か GPU 環境で全身アニメ画像の実 See-through 出力を取得し検証（GPU 不在なら代替取得手段を検討）
+- [x] TASK-020 実画像テスト: HF Space `24yearsold/see-through-demo` で test_image{0..3} @768 取得・検証（REAL_IMAGE.md / artifacts）
 - [ ] TASK-021 統合テスト・最終チェック（既存モード / detailed / PSD / レイヤー数 / 座標 / 透明度 / 左右 / フォールバック）→ 最終報告
 - [ ] (optional) TASK-022 SemanticSam / pose mask provider フック（GPU 環境で）

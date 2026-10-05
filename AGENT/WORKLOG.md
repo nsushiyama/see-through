@@ -90,3 +90,12 @@
 ## 2026-10-05 TASK-019 demo checkboxes
 - demo/app.py: added "Live2D detailed split" + "Show split preview" checkboxes and outputs (detailed PSD, preview, info). OFF path calls further_extr exactly as before and returns the same psd/gallery; detailed split runs only when checked, wrapped in try/except so failures never break the normal output.
 - tests/live2d/test_demo_app.py runs the real `inference()` with GPU models stubbed (gradio 6.29 in test venv). 41 passed.
+
+## 2026-10-05 TASK-020 real-image (HF Space)
+- Commit 1db357e: bg leakage cleanup + row-wise leg L/R (fixes HF legwear grey sheet / touching knees).
+- Re-ran detailed split on cached Space outputs img0..img3 (PSD→srcd, not lossy gallery).
+- Primary img1 (skirt): semantic 17 → LR 23 → detailed 45; PSD 928×1232 == input; 0 offset errors;
+  LR correct for hair/arms/legs/eyes; joint overlaps OK; 7087 arm px under topwear (inpainted kept);
+  visible restore 220k px; bg cleanup 73%→7% canvas on legwear.
+- Layer counts 37–45 (<50–80): no fake padding; short/missing sleeves are the main gap (documented).
+- Artifacts: tests/live2d/artifacts/* + REAL_IMAGE.md. 47 unit tests passed.
