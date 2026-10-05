@@ -99,3 +99,13 @@
   visible restore 220k px; bg cleanup 73%→7% canvas on legwear.
 - Layer counts 37–45 (<50–80): no fake padding; short/missing sleeves are the main gap (documented).
 - Artifacts: tests/live2d/artifacts/* + REAL_IMAGE.md. 47 unit tests passed.
+
+## 2026-10-05 TASK-021 final checks → COMPLETE
+- Integration checklist 22/22: existing LR-only path, detailed 18→53 on synth with PSD groups,
+  full-canvas offset 0, RGBA alpha, L/R names, safe_split fallback, demo checkboxes present,
+  overlap_px in 1–3%, real img0–3 stage counts / zero bad_offset / layer counts 37–45.
+- pytest tests/live2d: 47 passed.
+- STATUS: COMPLETE. Optional TASK-022 (SemanticSam/pose on GPU) left open.
+- Known limits: real outfits often land 37–45 layers (short/absent sleeves, empty accessory tags);
+  meaning preferred over padding to 50–80; puffy same-colour sleeves may stay on upper_arm;
+  side hair cuts roughly at eye height (overlap avoids gaps).

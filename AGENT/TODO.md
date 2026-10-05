@@ -22,5 +22,5 @@
 - [x] TASK-018 split preview（色分け mask, レイヤー数, 名前一覧）
 - [x] TASK-019 demo/app.py に「Live2D detailed split」「Show split preview」追加（OFF 経路は無改造）
 - [x] TASK-020 実画像テスト: HF Space `24yearsold/see-through-demo` で test_image{0..3} @768 取得・検証（REAL_IMAGE.md / artifacts）
-- [ ] TASK-021 統合テスト・最終チェック（既存モード / detailed / PSD / レイヤー数 / 座標 / 透明度 / 左右 / フォールバック）→ 最終報告
+- [x] TASK-021 統合テスト・最終チェック（既存モード / detailed / PSD / レイヤー数 / 座標 / 透明度 / 左右 / フォールバック）→ STATUS COMPLETE
 - [ ] (optional) TASK-022 SemanticSam / pose mask provider フック（GPU 環境で）
