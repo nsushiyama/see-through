@@ -90,6 +90,7 @@ ln -sf common/assets assets
 | Script | Purpose |
 |--------|---------|
 | `inference/scripts/inference_psd.py` | **Main pipeline** — end-to-end layer decomposition → PSD output |
+| `inference/scripts/fine_split_psd.py` | Split an output PSD into finer layers (e.g. 23 → ~70), CPU only |
 | `inference/scripts/syn_data.py` | Synthetic training data generation utilities |
 
 > For the other inference/data parsing scripts refer to the [codebase](./inference/scripts/) and check the docstrings for details.
@@ -155,6 +156,28 @@ python inference/scripts/heuristic_partseg.py seg_wdepth --srcp workspace/test_s
 #Left-right split
 python inference/scripts/heuristic_partseg.py seg_wlr --srcp workspace/test_samples_output/PV_0047_A0020_wdepth.psd --target_tags handwear-1
 ```
+
+#### Finer layers (e.g. ~70)
+
+LayerDiff 3D only knows its 23 trained tags, so finer layers are cut heuristically after decomposition:
+hair strands by line-art watershed, clothing by colour clusters, accessories by connected components,
+legwear/footwear into left/right. Pieces are ordered front to back and the area each front piece hides is
+inpainted into the pieces behind it, so every piece stays a complete layer. Piece counts are allocated
+to reach a target layer count; the rules live in `common/assets/fine_split/fine70.json` (copy it to make your own).
+
+```bash
+# During decomposition
+python inference/scripts/inference_psd.py --srcp assets/test_image.png --save_to_psd --tblr_split --fine_split fine70
+
+# On an existing PSD (e.g. from the online demo) -- numpy/OpenCV only, no GPU or model weights needed
+python inference/scripts/fine_split_psd.py --srcp workspace/layerdiff_output/test_image.psd --target_layers 70
+```
+
+`fine_split_psd.py` writes `<name>_fine.psd` and `<name>_fine_depth.psd`. It uses `<name>_depth.psd` for
+front/back ordering when present, otherwise keeps the PSD layer order. Use `--inpaint lama` for better
+fills if the LaMa annotator is installed (default `cv2`). The new pieces are heuristic cuts, not new semantic
+classes; check them before rigging. The approach follows the hair-splitting node of
+[crkNeo/comfyUI-See-through](https://github.com/crkNeo/comfyUI-See-through).
 
 ### Low-VRAM Users
 

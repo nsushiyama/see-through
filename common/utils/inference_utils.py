@@ -433,7 +433,7 @@ def tag_lr_split(tag: str, tag2pinfo):
         tag2pinfo.update(part_lr_split(tag, part_info))
 
 
-def further_extr(srcd: str, rotate=True, save_to_psd=False, tblr_split=True):
+def further_extr(srcd: str, rotate=True, save_to_psd=False, tblr_split=True, fine_split=None, fine_split_target=None):
 
 
     saved = osp.join(srcd, 'optimized')
@@ -511,6 +511,10 @@ def further_extr(srcd: str, rotate=True, save_to_psd=False, tblr_split=True):
         xyxy = tag2pinfo['mouth']['xyxy']
         tag2pinfo['mouth']['img'][..., :3] = fullpage[xyxy[1]: xyxy[3], xyxy[0]: xyxy[2], :3]
 
+    if fine_split is not None:
+        from utils.fine_split import apply_fine_split
+        apply_fine_split(tag2pinfo, fine_split, target_layers=fine_split_target)
+
     part_dict_list = []
     save_dir = osp.dirname(saved)
     psd_savep = osp.join(osp.dirname(save_dir), osp.basename(save_dir) + '.psd')
@@ -520,7 +524,10 @@ def further_extr(srcd: str, rotate=True, save_to_psd=False, tblr_split=True):
             print(f'{t} is not valid')
             continue
         part_dict = tag2pinfo[t]
+        fine_split_med = part_dict.pop('fine_split_depth_median', None)
         part_dict = save_part(t, saved, part_dict, save_to_disk=not save_to_psd)
+        if fine_split_med is not None:
+            part_dict['depth_median'] = fine_split_med
         if save_to_psd:
             part_dict_list.append(part_dict)
 

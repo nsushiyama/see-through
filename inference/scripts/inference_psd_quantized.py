@@ -343,6 +343,10 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--resolution', type=int, default=1280)
     parser.add_argument('--save_to_psd', action='store_true')
+    parser.add_argument('--fine_split', type=str, default=None,
+                        help='split layers further after decomposition: preset name under common/assets/fine_split (e.g. fine70) or a json path')
+    parser.add_argument('--fine_split_target', type=int, default=None,
+                        help='target total layer count for --fine_split, overrides the preset')
     parser.add_argument('--tblr_split', action='store_true',
                         help='try split parts (handwear, eyes, etc) into left-right components')
     parser.add_argument('--quant_mode', type=str, default='nf4', choices=['nf4', 'none'],
@@ -429,7 +433,8 @@ if __name__ == '__main__':
     # --- PSD assembly ---
     print('\nRunning PSD assembly...')
     psd_t0 = time.time()
-    further_extr(saved, rotate=False, save_to_psd=args.save_to_psd, tblr_split=args.tblr_split)
+    further_extr(saved, rotate=False, save_to_psd=args.save_to_psd, tblr_split=args.tblr_split,
+                 fine_split=args.fine_split, fine_split_target=args.fine_split_target)
     psd_time = time.time() - psd_t0
     print(f'  PSD assembly done in {psd_time:.1f}s')
 

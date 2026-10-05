@@ -1,0 +1,16 @@
+{
+    "target_layers": 70,
+    "inpaint": "cv2",
+    "rules": [
+        {"tags": ["front hair"], "mode": "lineart_watershed", "weight": 4.0, "min_k": 3, "max_k": 16},
+        {"tags": ["back hair"], "mode": "lineart_watershed", "weight": 3.0, "min_k": 2, "max_k": 12},
+        {"tags": ["hair"], "mode": "lineart_watershed", "weight": 4.0, "min_k": 3, "max_k": 20},
+        {"tags": ["topwear"], "mode": "color", "weight": 2.0, "min_k": 2, "max_k": 12},
+        {"tags": ["bottomwear"], "mode": "lineart_watershed", "weight": 1.5, "min_k": 2, "max_k": 8},
+        {"tags": ["neckwear"], "mode": "color", "weight": 1.0, "max_k": 4},
+        {"tags": ["headwear", "earwear", "objects"], "mode": "components", "weight": 1.0, "max_k": 6},
+        {"tags": ["handwear-l", "handwear-r", "handwear"], "mode": "depth_position", "weight": 0.5, "max_k": 3},
+        {"tags": ["tail", "wings"], "mode": "lineart_watershed", "weight": 1.0, "max_k": 6},
+        {"tags": ["legwear", "footwear"], "mode": "components", "k": 2, "lr": true}
+    ]
+}
