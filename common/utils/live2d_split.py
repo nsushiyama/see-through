@@ -268,6 +268,45 @@ def split_lr_cc(part: Part, base: Optional[str] = None) -> List[Part]:
             part.derive(f'{b}_L', keep_l, side='character_left', method='lr_cc')]
 
 
+def split_lr_rows(part: Part, cx: Optional[float], base: Optional[str] = None) -> Optional[List[Part]]:
+    """Split legs that touch somewhere (knees, thighs): per row, cut in the gap between the two
+    widest runs nearest the body centre; rows with a single run use the cut interpolated from the
+    neighbouring rows (falls back to the mid-line ``cx`` if no row shows a gap)."""
+    region = part.alpha > 0
+    H, W = region.shape
+    ys = np.nonzero(region.any(axis=1))[0]
+    if len(ys) == 0:
+        return None
+    ref = cx if cx is not None else float(np.median(np.nonzero(region)[1]))
+    cut_y, cut_x = [], []
+    m = part.mask
+    for y in ys:
+        cols = np.nonzero(m[y])[0]
+        if len(cols) < 2:
+            continue
+        k = np.nonzero(np.diff(cols) > 1)[0]
+        if len(k) == 0:
+            continue
+        runs = np.split(cols, k + 1)
+        big = sorted(sorted(runs, key=len)[-2:], key=lambda r: r[0])
+        if len(big) == 2 and min(len(big[0]), len(big[1])) >= 3:
+            g = (big[0][-1] + big[1][0]) / 2
+            if abs(g - ref) < 0.25 * W:
+                cut_y.append(y)
+                cut_x.append(g)
+    if len(cut_y) >= 3:
+        cut = np.interp(np.arange(H), cut_y, cut_x)
+    elif cx is not None:
+        cut = np.full(H, cx, np.float64)
+    else:
+        return None
+    xs = np.arange(W)[None, :]
+    right = region & (xs < cut[:, None])
+    b = base or part.name
+    return [part.derive(f'{b}_R', right, side='character_right', method='lr_rows'),
+            part.derive(f'{b}_L', region & ~right, side='character_left', method='lr_rows')]
+
+
 def split_lr_midline(part: Part, cx: float, base: Optional[str] = None) -> List[Part]:
     """Split a single connected region (e.g. tights) at the body mid-line x=cx."""
     region = part.alpha > 0
@@ -521,6 +560,73 @@ def is_suspicious(p: Part) -> bool:
     return p.area() > SUSPICIOUS_AREA_RATIO * p.img.shape[0] * p.img.shape[1]
 
 
+def background_mask(fullpage: np.ndarray, tol: int = 14) -> np.ndarray:
+    """Pixels where the INPUT image shows plain background (padding or a uniform colour region
+    connected to the image/padding border).  Nothing of the character can exist there: if the
+    background is visible at a pixel, no character part is in front of it."""
+    a = fullpage[..., 3]
+    pad = a < 10
+    opaque = a >= 250          # resized padding edges are semi-transparent/premultiplied: ignore them
+    edge = np.zeros_like(pad)
+    edge[0, :] = edge[-1, :] = edge[:, 0] = edge[:, -1] = True
+    touch = opaque & (edge | cv2.dilate((~opaque).astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool))
+    if not touch.any():
+        return pad
+    rgb = fullpage[..., :3].astype(np.int16)
+    bg_col = np.median(rgb[touch], axis=0)
+    cand = opaque & (np.abs(rgb - bg_col).max(axis=-1) <= tol)
+    n, lab = cv2.connectedComponents(cand.astype(np.uint8), connectivity=4)
+    ids = np.unique(lab[touch & cand])
+    ids = ids[ids > 0]
+    bg = np.isin(lab, ids)
+    # semi-transparent padding seam next to background counts as background
+    seam = ~pad & ~opaque & cv2.dilate(bg.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)
+    return pad | bg | seam
+
+
+def _below_hip(parts: Sequence[Part], shape) -> np.ndarray:
+    """Rows where legs can exist: from the top of the bottomwear (else the middle of topwear) down."""
+    ok = np.ones(shape, bool)
+    for tag, frac in (('bottomwear', 0.0), ('topwear', 0.5)):
+        src = [p for p in parts if p.source == tag and p.area() > 0 and not is_suspicious(p)]
+        if src:
+            rows = np.nonzero(np.any(np.logical_or.reduce([q.mask for q in src]), axis=1))[0]
+            ok[:int(rows.min() + frac * (rows.max() - rows.min()))] = False
+            break
+    return ok
+
+
+def stage_bg_cleanup(parts: List[Part], report: SplitReport, ctx: 'SplitContext', margin: int = 2,
+                     min_removed=0.2) -> List[Part]:
+    """Remove background leakage (e.g. legwear predicted as an opaque grey sheet over the white
+    background) from suspicious (>35% canvas) unsplit layers.  Only pixels that are background in
+    the input image are removed (eroded by ``margin`` px to keep anti-aliased outlines)."""
+    if ctx.fullpage is None or not any(is_suspicious(p) for p in parts):
+        return parts
+    bg = background_mask(ctx.fullpage)
+    if margin > 0:
+        bg = cv2.erode(bg.astype(np.uint8), np.ones((2 * margin + 1, 2 * margin + 1), np.uint8)).astype(bool)
+    out = []
+    for p in parts:
+        if p.side is None and is_suspicious(p):
+            keep = p.mask & ~bg
+            if p.source == 'legwear':
+                keep &= _below_hip(parts, keep.shape)
+            # drop thin leftovers (e.g. a 1-3 px frame line of the input) but keep real shapes intact
+            k = np.ones((5, 5), np.uint8)
+            core = cv2.morphologyEx(keep.astype(np.uint8), cv2.MORPH_OPEN, k, borderType=cv2.BORDER_CONSTANT, borderValue=0)
+            keep &= cv2.dilate(core, k).astype(bool)
+            removed = 1 - keep.sum() / max(1, p.area())
+            if keep.sum() >= 16 and removed >= min_removed:
+                q = p.derive(p.name, keep, method='bg_cleanup')
+                report.event(f'bg cleanup ({p.name}): removed {removed:.0%} of the layer lying on visible '
+                             f'background ({p.area() / p.mask.size:.0%} -> {q.area() / q.mask.size:.0%} of canvas)')
+                out.append(q)
+                continue
+        out.append(p)
+    return out
+
+
 def stage_lr_extra(parts: List[Part], report: SplitReport) -> List[Part]:
     cx = body_center_x(parts)
     out = []
@@ -536,10 +642,11 @@ def stage_lr_extra(parts: List[Part], report: SplitReport) -> List[Part]:
                 continue
 
             def _legs(q):
-                r = split_lr_cc(q)
-                if len(r) == 2:
-                    return r
-                return split_lr_midline(q, cx) if cx is not None else None
+                comps = components(q.mask)
+                # two separate legs of comparable size -> existing CC rule
+                if len(comps) >= 2 and comps[1][1][cv2.CC_STAT_AREA] >= 0.25 * comps[0][1][cv2.CC_STAT_AREA]:
+                    return split_lr_cc(q)
+                return split_lr_rows(q, cx)
             out.extend(safe_split(p, _legs, report, 'lr_legs'))
         else:
             out.append(p)
@@ -584,6 +691,10 @@ def run_detailed_split(srcd: str, original: Optional[str] = None, out_psd: Optio
     report.stage('after LR split', len(parts))
     ctx = SplitContext(canvas_hw=fullpage.shape[:2], overlap_ratio=overlap_ratio,
                        body_cx=body_center_x(parts), fullpage=fullpage)
+    try:
+        parts = stage_bg_cleanup(parts, report, ctx)
+    except Exception as e:  # noqa: BLE001
+        report.event(f'stage bg_cleanup failed ({type(e).__name__}: {e}); parts left unchanged')
     parts = stage_lr_extra(parts, report)
     for label, fn in DETAILED_STAGES:
         try:
@@ -889,6 +1000,9 @@ DETAILED_STAGES.append(('topwear', stage_topwear))
 def split_leg(part: Part, ctx: 'SplitContext', has_footwear: bool) -> List[Part]:
     sfx = side_suffix(part.side)
     m = part.mask
+    comps = components(m)
+    if len(comps) > 1 and comps[0][1][cv2.CC_STAT_AREA] >= 0.5 * m.sum():
+        m = comps[0][0]   # axis from the main leg; stray blobs are assigned to the nearest segment
     ys, xs = np.nonzero(m)
     y0 = ys.min()
     top = ys <= y0 + max(2, 0.03 * (ys.max() - y0))

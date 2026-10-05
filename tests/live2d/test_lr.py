@@ -47,7 +47,7 @@ def test_extra_lr_feet_legs(synth_dir):
     assert _cx(by['leg_R']) < _cx(by['leg_L'])
 
 
-def test_legs_connected_use_midline(synth_dir):
+def test_legs_connected_use_rows(synth_dir):
     _, parts = L.load_semantic_layers(synth_dir)
     leg = [p for p in parts if p.source == 'legwear'][0]
     m = leg.mask.copy()
@@ -57,7 +57,8 @@ def test_legs_connected_use_midline(synth_dir):
     rep = L.SplitReport()
     out = L.stage_lr_extra(parts, rep)
     by = {p.name: p for p in out}
-    assert by['leg_R'].method == 'lr_midline'
+    # row-wise gap cut (falls back to body mid-line when no gap row is found)
+    assert by['leg_R'].method in ('lr_rows', 'lr_midline')
     assert _cx(by['leg_R']) < _cx(by['leg_L'])
 
 
